@@ -1,5 +1,18 @@
 # AI Video Clipper & Publisher Agent
 
+Project website: https://tioantawibawa.github.io/ai-video-clipper/
+
+The static website lives in `docs/` and includes `privacy.html`, `terms.html`,
+and the app icon. GitHub Pages publishes only that directory from
+`codex/ai-video-clipper`. It is an information site, not an OAuth callback or a
+hosted version of the Python agent. Do not place credentials or private media
+inside `docs/`. TikTok URL-prefix verification files, when supplied by TikTok,
+can be added to this directory without changing their filename or contents.
+
+An administrator with existing GitHub Git credentials can inspect or enable
+the site using `python scripts/github_pages.py status` or `enable`. The helper
+does not change repository visibility or overwrite an existing Pages source.
+
 Python 3.11/3.12, headless Ubuntu, a `src/clipper/` package, SQLite, FFmpeg/libass,
 and official publishing APIs. OpenRouter free routing and review are enabled by default. Source media should
 be owned by you or licensed for clipping and redistribution.
