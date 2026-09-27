@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     llm_provider: Literal["openrouter", "openai", "anthropic", "gemini"] = "openrouter"
     llm_model: str = ""
     openrouter_api_key: SecretStr = SecretStr("")
+    llm_fallback_enabled: bool = True
+    gemini_fallback_model: str = Field("gemini-2.5-flash", min_length=1)
+    openrouter_paid_model: str = Field("openai/gpt-4o-mini", min_length=1)
     openai_api_key: SecretStr = SecretStr("")
     anthropic_api_key: SecretStr = SecretStr("")
     gemini_api_key: SecretStr = SecretStr("")
@@ -46,7 +49,9 @@ class Settings(BaseSettings):
         if self.llm_provider == "openrouter" and not (
             self.llm_model == "openrouter/free" or self.llm_model.endswith(":free")
         ):
-            raise ValueError("OpenRouter requires openrouter/free or an explicit :free model; paid routing is disabled")
+            raise ValueError("OpenRouter primary must be free; configure paid fallback with CLIPPER_OPENROUTER_PAID_MODEL")
+        if self.openrouter_paid_model.startswith("openrouter/") or self.openrouter_paid_model.endswith(":free"):
+            raise ValueError("CLIPPER_OPENROUTER_PAID_MODEL must name a specific paid model")
         if not 0 < self.min_duration <= self.max_duration:
             raise ValueError("Invalid duration range")
         if self.width <= 0 or self.height <= 0 or self.width * 16 != self.height * 9:

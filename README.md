@@ -69,7 +69,7 @@ provider availability changes; the historical Gemini 1.5 / Claude 3.5 examples
 are not hardcoded. Default: `openrouter` / `openrouter/free`. Explicit OpenAI
 configuration still supports `gpt-4o-mini`.
 
-### OpenRouter: automatic free models
+### Ordered fallback: free OpenRouter -> Gemini -> paid OpenRouter
 
 Create an API key in your OpenRouter account and set these values in `.env`:
 
@@ -77,6 +77,10 @@ Create an API key in your OpenRouter account and set these values in `.env`:
 CLIPPER_LLM_PROVIDER=openrouter
 CLIPPER_LLM_MODEL=openrouter/free
 CLIPPER_OPENROUTER_API_KEY=YOUR_KEY_HERE
+CLIPPER_LLM_FALLBACK_ENABLED=true
+CLIPPER_GEMINI_API_KEY=YOUR_GEMINI_KEY_HERE
+CLIPPER_GEMINI_FALLBACK_MODEL=gemini-2.5-flash
+CLIPPER_OPENROUTER_PAID_MODEL=openai/gpt-4o-mini
 CLIPPER_TRANSCRIPTION=local
 ```
 
@@ -85,15 +89,31 @@ models, filtering for the request's capabilities, including JSON output. This
 applies to both moment curation and metadata generation. Selection is not a
 quality ranking and may vary between requests. No model list needs maintenance.
 You can optionally pin an explicit model ID ending in `:free`; that disables
-automatic model selection. Other OpenRouter IDs (including `openrouter/auto` and
-paid models) are rejected before a network request. There is no paid fallback.
+automatic model selection for the first stage. The primary OpenRouter model must
+remain free; configure the final paid stage separately with
+`CLIPPER_OPENROUTER_PAID_MODEL`.
 
 Rate limits, provider outages and malformed JSON are retried up to four attempts;
-each router retry may select another eligible free model. If attempts fail, the
-operation fails instead of switching to a paid provider. Failed monitored episodes
-retry on the next scan. Free access remains subject to OpenRouter account quotas
-and provider availability; it is not unlimited. Local transcription avoids the
-separate paid Whisper API; VPS hosting costs are unaffected.
+each router retry may select another eligible free model. Each request starts at
+the first stage and stops at the first valid JSON object, in this order:
+
+1. Free OpenRouter (`openrouter/free`).
+2. Gemini directly via Google's API, using its own API key.
+3. Paid OpenRouter, using the same OpenRouter key and the configured paid model.
+
+Fallback happens after exhausted retries or a non-retryable provider HTTP error
+(for example invalid credentials or an unavailable model). Missing API keys skip
+that stage with a log warning. Each configured stage makes at most four attempts;
+if every stage fails, the operation fails. Explicit single-provider selections
+(`openai`, `anthropic`, `gemini`) do not run this chain. Set
+`CLIPPER_LLM_FALLBACK_ENABLED=false` to restrict requests to the primary provider.
+Schema checks for curated moments and metadata still run after JSON parsing.
+
+The third stage can consume OpenRouter credits; Gemini billing depends on your
+Google project and quota. Free access is not unlimited. Local transcription avoids
+the separate paid Whisper API; VPS hosting costs are unaffected. Failed monitored
+episodes retry on the next scan. Logs show stage outcomes without credentials or
+transcript content.
 
 Existing `.env` files are not overwritten: replace their previous provider/model
 values with the settings above. After pulling updates, rebuild/restart Docker with
