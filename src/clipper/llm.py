@@ -14,8 +14,9 @@ async def ask(cfg: Settings, instruction: str, data: object) -> dict:
     key = getattr(cfg, f"{provider}_api_key").get_secret_value()
     if not key:
         raise ValueError(f"Missing {provider} API key")
-    if provider == "openai":
-        url = "https://api.openai.com/v1/chat/completions"
+    if provider in {"openai", "openrouter"}:
+        url = ("https://openrouter.ai/api/v1/chat/completions" if provider == "openrouter"
+               else "https://api.openai.com/v1/chat/completions")
         headers = {"Authorization": f"Bearer {key}"}
         body = {"model": cfg.llm_model, "response_format": {"type": "json_object"},
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
@@ -40,7 +41,7 @@ async def ask(cfg: Settings, instruction: str, data: object) -> dict:
                         continue
                 response.raise_for_status()
                 result = response.json()
-                if provider == "openai":
+                if provider in {"openai", "openrouter"}:
                     raw = result["choices"][0]["message"]["content"]
                 elif provider == "anthropic":
                     raw = "".join(x.get("text", "") for x in result["content"])
@@ -50,7 +51,7 @@ async def ask(cfg: Settings, instruction: str, data: object) -> dict:
                 if not isinstance(parsed, dict):
                     raise ValueError("Expected JSON object")
                 return parsed
-            except (httpx.TransportError, json.JSONDecodeError):
+            except (httpx.TransportError, ValueError, KeyError, IndexError, TypeError):
                 if attempt == 3:
                     raise
                 await asyncio.sleep(2 ** attempt)

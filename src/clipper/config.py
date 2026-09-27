@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     accounts_file: Path = Path("accounts.json")
     sources_file: Path = Path("sources.json")
-    llm_provider: Literal["openai", "anthropic", "gemini"] = "openai"
-    llm_model: str = "gpt-4o-mini"
+    llm_provider: Literal["openrouter", "openai", "anthropic", "gemini"] = "openrouter"
+    llm_model: str = ""
+    openrouter_api_key: SecretStr = SecretStr("")
     openai_api_key: SecretStr = SecretStr("")
     anthropic_api_key: SecretStr = SecretStr("")
     gemini_api_key: SecretStr = SecretStr("")
@@ -35,6 +36,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def valid_output(self):
+        if not self.llm_model:
+            if self.llm_provider == "openrouter":
+                self.llm_model = "openrouter/free"
+            elif self.llm_provider == "openai":
+                self.llm_model = "gpt-4o-mini"
+            else:
+                raise ValueError("Set CLIPPER_LLM_MODEL for this provider")
+        if self.llm_provider == "openrouter" and not (
+            self.llm_model == "openrouter/free" or self.llm_model.endswith(":free")
+        ):
+            raise ValueError("OpenRouter requires openrouter/free or an explicit :free model; paid routing is disabled")
         if not 0 < self.min_duration <= self.max_duration:
             raise ValueError("Invalid duration range")
         if self.width <= 0 or self.height <= 0 or self.width * 16 != self.height * 9:

@@ -1,7 +1,7 @@
 # AI Video Clipper & Publisher Agent
 
 Python 3.11/3.12, headless Ubuntu, a `src/clipper/` package, SQLite, FFmpeg/libass,
-and official publishing APIs. Review is enabled by default. Source media should
+and official publishing APIs. OpenRouter free routing and review are enabled by default. Source media should
 be owned by you or licensed for clipping and redistribution.
 
 ## Quick start (Ubuntu 24.04)
@@ -16,7 +16,7 @@ pip install --no-deps -e .
 cp .env.example .env
 cp accounts.example.json accounts.json
 cp sources.example.json sources.json
-# Edit .env; remove unused accounts and replace the example source.
+# Set CLIPPER_OPENROUTER_API_KEY in .env; remove unused accounts and replace the example source.
 chmod 600 .env accounts.json
 python -m clipper doctor
 python -m clipper process 'https://www.youtube.com/watch?v=VIDEO_ID'
@@ -48,7 +48,7 @@ YouTube URL / channel / RSS
 | `config.py`, `models.py` | Validated configuration and timestamp/metadata schemas |
 | `downloader.py` | yt-dlp subprocess, audio-first ingestion, 720p video cap, RSS/channel discovery |
 | `transcriber.py` | Faster-Whisper CPU int8 / CUDA float16, or 10-minute Whisper API chunks |
-| `llm.py`, `curator.py` | OpenAI/Anthropic/Gemini adapters, JSON validation, boundary snapping, overlap suppression |
+| `llm.py`, `curator.py` | OpenRouter/OpenAI/Anthropic/Gemini adapters, JSON validation, boundary snapping, overlap suppression |
 | `editor.py`, `framing.py` | FFmpeg silence detection, synchronized A/V cuts, face/mouth-motion framing, timed word highlights |
 | `metadata.py` | US-English titles under 60 chars, descriptions, relevant hashtags |
 | `scheduler.py` | SQLite WAL transactions, daily capacity, review, atomic claims, crash states |
@@ -66,7 +66,40 @@ All settings use the `CLIPPER_` prefix; see `.env.example`. For Claude use
 `CLIPPER_LLM_PROVIDER=anthropic`, your key, and a model available to your account.
 For Gemini use `gemini` and its model ID. Model names are configurable because
 provider availability changes; the historical Gemini 1.5 / Claude 3.5 examples
-are not hardcoded. Default: `openai` / `gpt-4o-mini`.
+are not hardcoded. Default: `openrouter` / `openrouter/free`. Explicit OpenAI
+configuration still supports `gpt-4o-mini`.
+
+### OpenRouter: automatic free models
+
+Create an API key in your OpenRouter account and set these values in `.env`:
+
+```env
+CLIPPER_LLM_PROVIDER=openrouter
+CLIPPER_LLM_MODEL=openrouter/free
+CLIPPER_OPENROUTER_API_KEY=YOUR_KEY_HERE
+CLIPPER_TRANSCRIPTION=local
+```
+
+The official `openrouter/free` router automatically chooses among available free
+models, filtering for the request's capabilities, including JSON output. This
+applies to both moment curation and metadata generation. Selection is not a
+quality ranking and may vary between requests. No model list needs maintenance.
+You can optionally pin an explicit model ID ending in `:free`; that disables
+automatic model selection. Other OpenRouter IDs (including `openrouter/auto` and
+paid models) are rejected before a network request. There is no paid fallback.
+
+Rate limits, provider outages and malformed JSON are retried up to four attempts;
+each router retry may select another eligible free model. If attempts fail, the
+operation fails instead of switching to a paid provider. Failed monitored episodes
+retry on the next scan. Free access remains subject to OpenRouter account quotas
+and provider availability; it is not unlimited. Local transcription avoids the
+separate paid Whisper API; VPS hosting costs are unaffected.
+
+Existing `.env` files are not overwritten: replace their previous provider/model
+values with the settings above. After pulling updates, rebuild/restart Docker with
+`docker compose up -d --build`. Keep the API key out of Git and chat messages.
+
+Reference: [OpenRouter Free Models Router](https://openrouter.ai/openrouter/free).
 
 `CLIPPER_TRANSCRIPTION=local` uses Faster-Whisper; `api` uses OpenAI `whisper-1`.
 The local model downloads on first use. CUDA mode requires a compatible NVIDIA
