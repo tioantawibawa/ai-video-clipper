@@ -1,0 +1,9 @@
+.git
+.env
+.venv
+data
+accounts.json
+sources.json
+credentials
+__pycache__
+.pytest_cache

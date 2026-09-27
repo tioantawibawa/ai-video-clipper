@@ -1,0 +1,27 @@
+[
+  {
+    "id": "podcast-us-youtube",
+    "platform": "youtube",
+    "token_env": "YOUTUBE_ACCESS_TOKEN",
+    "proxy_env": null,
+    "warmed": false,
+    "daily_limit": 3,
+    "timezone": "America/New_York",
+    "privacy": "private"
+  },
+  {
+    "id": "podcast-us-tiktok",
+    "platform": "tiktok",
+    "token_env": "TIKTOK_ACCESS_TOKEN",
+    "privacy": "SELF_ONLY",
+    "timezone": "America/New_York"
+  },
+  {
+    "id": "podcast-us-instagram",
+    "platform": "instagram",
+    "token_env": "INSTAGRAM_ACCESS_TOKEN",
+    "user_id": "REPLACE_WITH_PROFESSIONAL_ACCOUNT_ID",
+    "graph_version": "v23.0",
+    "public_media_base": "https://media.example.com/clips"
+  }
+]

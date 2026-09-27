@@ -1,0 +1,26 @@
+services:
+  clipper:
+    build: .
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CLIPPER_DATA_DIR: /app/data
+      CLIPPER_ACCOUNTS_FILE: /app/accounts.json
+      CLIPPER_SOURCES_FILE: /app/sources.json
+    volumes:
+      - clipper-data:/app/data
+      - ./accounts.json:/app/accounts.json:ro
+      - ./sources.json:/app/sources.json:ro
+      - whisper-cache:/home/clipper/.cache
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 45s
+    mem_limit: 6g
+    cpus: 4
+volumes:
+  clipper-data:
+  whisper-cache:

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools==75.8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clipper-agent"
+version = "0.1.0"
+description = "Headless podcast clipping and reviewed publishing pipeline"
+requires-python = ">=3.11,<3.13"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+clipper = "clipper.cli:app"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

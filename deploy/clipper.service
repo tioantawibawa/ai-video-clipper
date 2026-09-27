@@ -1,0 +1,30 @@
+[Unit]
+Description=AI Video Clipper and Publisher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=clipper
+Group=clipper
+WorkingDirectory=/opt/clipper
+EnvironmentFile=/opt/clipper/.env
+Environment=CLIPPER_DATA_DIR=/var/lib/clipper
+Environment=HF_HOME=/var/lib/clipper/models
+ExecStart=/opt/clipper/.venv/bin/python -m clipper daemon
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=45
+KillSignal=SIGINT
+UMask=0077
+StateDirectory=clipper
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/clipper
+MemoryMax=6G
+CPUQuota=400%
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[
+  {
+    "url": "https://www.youtube.com/@YOUR_CHANNEL/videos",
+    "kind": "channel",
+    "proxy_env": null,
+    "accounts": ["podcast-us-youtube"],
+    "limit": 3
+  }
+]
