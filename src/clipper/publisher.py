@@ -78,6 +78,20 @@ class Publisher:
 
     async def tiktok(self, client, clip, meta):
         root = "https://open.tiktokapis.com/v2"
+        if self.account.tiktok_mode == "draft":
+            size = clip.stat().st_size
+            if not 0 < size <= 64 * 1024 * 1024:
+                raise ValueError("TikTok requires a nonempty clip <=64 MiB")
+            response = checked(await client.post(root + "/post/publish/inbox/video/init/", json={
+                "source_info": {"source": "FILE_UPLOAD", "video_size": size,
+                                "chunk_size": size, "total_chunk_count": 1}}))["data"]
+            url = upload_url(response["upload_url"], "tiktokapis.com")
+            request = client.build_request("PUT", url, headers={"Content-Type": "video/mp4",
+                "Content-Length": str(size), "Content-Range": f"bytes 0-{size - 1}/{size}"}, content=file_chunks(clip))
+            request.headers.pop("Authorization", None)
+            uploaded = await client.send(request)
+            uploaded.raise_for_status()
+            return "processing", response["publish_id"]
         creator = checked(await client.post(root + "/post/publish/creator_info/query/", json={}))['data']
         privacy = self.account.privacy
         if privacy not in creator["privacy_level_options"]:
@@ -133,6 +147,9 @@ class Publisher:
                 result = checked(await client.post("https://open.tiktokapis.com/v2/post/publish/status/fetch/",
                                                      json={"publish_id": remote_id}))['data']
                 status = result["status"]
+                if self.account.tiktok_mode == "draft" and status == "SEND_TO_USER_INBOX":
+                    # Terminal handoff, not a published post. The creator finishes in TikTok.
+                    return "awaiting_creator", remote_id
                 return ("published" if status == "PUBLISH_COMPLETE" else
                         "failed" if status == "FAILED" else "processing"), remote_id
             root = f"https://graph.facebook.com/{account.graph_version}"

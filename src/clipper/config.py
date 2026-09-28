@@ -70,6 +70,7 @@ class Account(BaseModel):
     daily_limit: int = Field(3, ge=1, le=4)
     timezone: str = "America/New_York"
     privacy: str = "private"
+    tiktok_mode: Literal["draft", "direct"] = "draft"
     user_id: str = ""
     graph_version: str = "v23.0"
     public_media_base: str = ""
