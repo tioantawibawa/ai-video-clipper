@@ -147,10 +147,12 @@ Account credentials are never committed or included in application logs.
 ## Publishing prerequisites
 
 Each account must have its own authorized token, scopes and platform app access.
-Obtain OAuth grants separately and inject tokens through `.env` or your secret
-manager. This project does not implement an interactive OAuth consent server or
-token renewal; rotate expiring tokens and restart the daemon. No browser profiles
-are needed because adapters use official APIs.
+The optional [TikTok Web OAuth service](deploy/OAUTH.md) supports consent callbacks
+and manual token refresh in an isolated service. Its draft-upload grants are not
+yet wired into the Direct Post publisher. For existing publishers, obtain grants
+separately and inject tokens through `.env` or your secret manager; rotate expiring
+tokens and restart the daemon. No browser profiles are needed because adapters use
+official APIs.
 
 * **YouTube:** `youtube.upload` for uploads and `youtube.readonly` for processing
   checks. Default privacy is `private`; set `public` only when intended. Uploads

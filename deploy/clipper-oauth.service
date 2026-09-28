@@ -1,0 +1,25 @@
+[Unit]
+Description=AI Clipper TikTok OAuth callback
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=clipper-oauth
+Group=clipper-oauth
+WorkingDirectory=/opt/clipper-oauth
+EnvironmentFile=/etc/clipper-oauth.env
+Environment=PYTHONPATH=/opt/clipper-oauth/src
+Environment=CLIPPER_OAUTH_DATA=/var/lib/clipper-oauth
+ExecStart=/opt/clipper-oauth/venv/bin/gunicorn --bind 127.0.0.1:8787 --workers 1 --threads 2 --timeout 45 'clipper.oauth:create_app()'
+Restart=on-failure
+RestartSec=5
+UMask=0077
+StateDirectory=clipper-oauth
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target
