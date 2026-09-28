@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ai-video-clipper
-EnvironmentFile=/home/ubuntu/ai-video-clipper/.env
+# CLI loads .env without overriding the deployment-specific environment below.
 Environment=CLIPPER_DATA_DIR=/home/ubuntu/ai-video-clipper/data/vps
 Environment=CLIPPER_ACCOUNTS_FILE=/home/ubuntu/ai-video-clipper/data/vps/accounts.json
 Environment=CLIPPER_SOURCES_FILE=/home/ubuntu/ai-video-clipper/data/vps/sources.json
