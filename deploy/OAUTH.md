@@ -1,9 +1,10 @@
 # TikTok Web OAuth on Ubuntu
 
 This separate, lightweight service supports owner-initiated Web OAuth and a
-manual refresh command. It does not implement the creator export UI, automatically
-refresh publisher credentials, or make the existing Direct Post adapter work with
-the `video.upload` draft scope. Never treat the health check as a completed TikTok
+manual refresh command. It does not implement the creator export UI or automatically
+refresh publisher credentials. The draft adapter accepts `video.upload` tokens via
+the account's token environment variable; stored OAuth tokens are not automatically
+exported into that environment. Never treat the health check as a completed TikTok
 integration test. Keep publishing disabled until that integration is completed.
 
 Install Python venv support, create a dedicated `clipper-oauth` system user, copy

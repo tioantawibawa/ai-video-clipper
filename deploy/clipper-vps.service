@@ -1,0 +1,29 @@
+[Unit]
+Description=AI Clipper YouTube and TikTok reviewed worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ai-video-clipper
+EnvironmentFile=/home/ubuntu/ai-video-clipper/.env
+Environment=CLIPPER_DATA_DIR=/home/ubuntu/ai-video-clipper/data/vps
+Environment=CLIPPER_ACCOUNTS_FILE=/home/ubuntu/ai-video-clipper/data/vps/accounts.json
+Environment=CLIPPER_SOURCES_FILE=/home/ubuntu/ai-video-clipper/data/vps/sources.json
+Environment=CLIPPER_REVIEW=true
+Environment=CLIPPER_CPU_THREADS=1
+Environment=CLIPPER_WHISPER_MODEL=tiny.en
+Environment=CLIPPER_DEVICE=cpu
+ExecStart=/home/ubuntu/ai-video-clipper/.venv/bin/python -m clipper daemon
+Restart=on-failure
+RestartSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+MemoryHigh=600M
+MemoryMax=900M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

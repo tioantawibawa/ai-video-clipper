@@ -148,11 +148,19 @@ Account credentials are never committed or included in application logs.
 
 Each account must have its own authorized token, scopes and platform app access.
 The optional [TikTok Web OAuth service](deploy/OAUTH.md) supports consent callbacks
-and manual token refresh in an isolated service. Its draft-upload grants are not
-yet wired into the Direct Post publisher. For existing publishers, obtain grants
+and manual token refresh in an isolated service. Its stored grants are not
+automatically loaded by the publisher. For existing publishers, obtain grants
 separately and inject tokens through `.env` or your secret manager; rotate expiring
 tokens and restart the daemon. No browser profiles are needed because adapters use
 official APIs.
+
+TikTok accounts default to `tiktok_mode: "draft"`, using `video.upload`. The final
+queue state `awaiting_creator` means the user must open the TikTok inbox notification,
+edit metadata and complete posting; it is not a published video. Set
+`tiktok_mode: "direct"` only for an appropriately approved Direct Post integration.
+The Ubuntu user checkout deployment template is `deploy/clipper-vps.service`.
+Its separate `data/vps/accounts.json` and `data/vps/sources.json` must be configured;
+an empty sources list keeps the service idle until real monitored channels are set.
 
 * **YouTube:** `youtube.upload` for uploads and `youtube.readonly` for processing
   checks. Default privacy is `private`; set `public` only when intended. Uploads
