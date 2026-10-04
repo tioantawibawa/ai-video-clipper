@@ -214,6 +214,9 @@ class Pipeline:
                 account = self.accounts[payload["account"]]
                 if not source.approved or account.platform != "youtube":
                     raise ValueError("Production ticket requires approved YouTube source")
+                proxy = os.environ.get(account.proxy_env) if account.proxy_env else None
+                if account.proxy_env and not proxy:
+                    raise ValueError("Configured account proxy is missing")
                 payload["state"] = "processing"
                 self.write_ticket(ticket, payload)
                 if not self.queue.episode_claim(source.url):
@@ -221,7 +224,7 @@ class Pipeline:
                 else:
                     try:
                         agent = Pipeline(self.cfg.model_copy(update={"review": payload.get("review", True), "max_clips": 1}))
-                        manifest = await agent.process(source.url, [])
+                        manifest = await agent.process(source.url, [], proxy=proxy)
                         media = json.loads(manifest.read_text(encoding="utf-8"))
                         for clip in media["clips"]:
                             if source.attribution:
