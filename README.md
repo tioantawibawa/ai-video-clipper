@@ -290,3 +290,7 @@ runs the suite on Ubuntu. No live social posts are made by tests.
 
 No credentials, recordings or generated clips belong in Git. Once a destination
 repository is configured, push the source commit with `git push -u origin HEAD`.
+# Daily content manager
+
+See [content-manager.md](docs/content-manager.md) for daily research, seven-day planning, production tickets, engagement reports, reviewed comment replies, and YouTube Ads drafts. Configuration starts from `manager.example.json`; systemd service and timer templates are in `deploy/`.
+

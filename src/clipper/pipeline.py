@@ -197,5 +197,46 @@ class Pipeline:
                                 logger.error("Episode processing failed: {}", type(exc).__name__)
                     except Exception as exc:
                         logger.error("Source scan failed: {}", type(exc).__name__)
+                await self.manager_production_tick()
                 next_scan = time.monotonic() + self.cfg.poll_seconds
             await asyncio.sleep(30)
+
+    async def manager_production_tick(self):
+        """Consume one approved editorial ticket using this daemon's existing lock."""
+        from .manager_config import ApprovedSource
+        for ticket in sorted((self.root / "manager" / "production").glob("*.json")):
+            payload = None
+            try:
+                payload = json.loads(ticket.read_text(encoding="utf-8"))
+                if payload.get("state") != "pending":
+                    continue
+                source = ApprovedSource.model_validate(payload["source"])
+                account = self.accounts[payload["account"]]
+                if not source.approved or account.platform != "youtube":
+                    raise ValueError("Production ticket requires approved YouTube source")
+                payload["state"] = "processing"
+                self.write_ticket(ticket, payload)
+                if not self.queue.episode_claim(source.url):
+                    payload["state"] = "already_processed"
+                else:
+                    try:
+                        agent = Pipeline(self.cfg.model_copy(update={"review": payload.get("review", True), "max_clips": 1}))
+                        payload["manifest"] = str(await agent.process(source.url, [account.id]))
+                        self.queue.episode_finish(source.url, True)
+                        payload["state"] = "staged"
+                    except Exception:
+                        self.queue.episode_finish(source.url, False)
+                        raise
+                self.write_ticket(ticket, payload)
+                break
+            except Exception as exc:
+                logger.error("Manager production failed ({})", type(exc).__name__)
+                if isinstance(payload, dict):
+                    payload.update(state="failed", error=type(exc).__name__)
+                    self.write_ticket(ticket, payload)
+
+    @staticmethod
+    def write_ticket(path, payload):
+        pending = path.with_suffix(".tmp")
+        pending.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        pending.replace(path)

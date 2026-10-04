@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily content research and channel evaluation
+
+[Timer]
+OnCalendar=*-*-* 07:15:00 America/New_York
+RandomizedDelaySec=30m
+Persistent=true
+Unit=clipper-manager.service
+
+[Install]
+WantedBy=timers.target

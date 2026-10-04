@@ -1,0 +1,16 @@
+{
+  "account": "podcast-us-youtube",
+  "topics": ["Cristiano Ronaldo", "Manchester United"],
+  "region": "US",
+  "language": "en",
+  "lookback_days": 7,
+  "plan_days": 7,
+  "owned_video_limit": 30,
+  "comments_per_video": 20,
+  "max_reply_drafts": 10,
+  "produce": false,
+  "sources": [],
+  "video_review": true,
+  "ads_daily_budget_usd": null,
+  "ads_duration_days": 7
+}

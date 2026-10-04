@@ -92,3 +92,8 @@ def doctor():
     typer.echo(json.dumps(result, indent=2))
     if not all(result.values()):
         raise typer.Exit(1)
+
+
+from .content_manager import register_cli  # noqa: E402
+
+register_cli(app, pipeline, execute)

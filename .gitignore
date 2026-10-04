@@ -10,6 +10,7 @@ __pycache__/
 data/
 accounts.json
 sources.json
+manager.json
 credentials/
 build/
 dist/
