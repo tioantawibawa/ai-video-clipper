@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     highlight: str = Field("FFFF00", pattern=r"^[0-9A-Fa-f]{6}$")
     review: bool = True
     poll_seconds: int = Field(900, ge=30)
+    outbox_dir: Path | None = None
+    outbox_account: str = ""
     subprocess_timeout: int = 7200
 
     @model_validator(mode="after")
@@ -65,6 +67,9 @@ class Account(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]+$")
     platform: Literal["youtube", "tiktok", "instagram"]
     token_env: str
+    refresh_token_env: str | None = None
+    client_id_env: str | None = None
+    client_secret_env: str | None = None
     proxy_env: str | None = None
     warmed: bool = False
     daily_limit: int = Field(3, ge=1, le=4)

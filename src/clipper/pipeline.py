@@ -103,6 +103,7 @@ class Pipeline:
         return manifest
 
     async def publish_tick(self):
+        self.scan_outbox()
         for row in self.queue.rows():
             if row["state"] != "processing" or row["account"] not in self.accounts:
                 continue
@@ -115,7 +116,19 @@ class Pipeline:
                 self.queue.set_state(row["id"], state, remote_id)
             except Exception as exc:
                 logger.warning("Status check failed for job {}: {}", row["id"], type(exc).__name__)
-        row = self.queue.claim(self.accounts)
+        eligible = dict(self.accounts)
+        pending_accounts = {r["account"] for r in self.queue.rows() if r["state"] == "queued"}
+        # Auth failure occurs before claiming: leave jobs queued, not uncertain.
+        for account in self.accounts.values():
+            if account.id in pending_accounts and account.platform == "youtube" and account.refresh_token_env:
+                try:
+                    publisher = Publisher(account)
+                    async with publisher.client() as client:
+                        await publisher.authenticate(client)
+                except Exception as exc:
+                    eligible.pop(account.id, None)
+                    logger.warning("YouTube account {} awaiting OAuth ({})", account.id, type(exc).__name__)
+        row = self.queue.claim(eligible)
         if row:
             try:
                 state, remote_id = await Publisher(self.accounts[row["account"]]).publish(
@@ -124,6 +137,30 @@ class Pipeline:
             except Exception as exc:
                 self.queue.set_state(row["id"], "uncertain", error=type(exc).__name__)
                 logger.error("Upload job {} requires reconciliation ({})", row["id"], type(exc).__name__)
+
+    def scan_outbox(self):
+        if self.cfg.outbox_dir is None:
+            return
+        account = self.accounts.get(self.cfg.outbox_account)
+        if account is None or account.platform != "youtube":
+            raise ValueError("Outbox requires a configured YouTube account")
+        root = self.cfg.outbox_dir.resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        for manifest in sorted(root.glob("*.json")):
+            try:
+                payload = json.loads(manifest.read_text(encoding="utf-8"))
+                if payload.get("published") or payload.get("remote_id"):
+                    continue
+                clip = (root / payload["file"]).resolve()
+                if not clip.is_relative_to(root) or clip.suffix.lower() != ".mp4":
+                    raise ValueError("Invalid outbox media path")
+                if not clip.is_file() or clip.stat().st_size == 0:
+                    continue
+                from .models import Metadata
+                metadata = Metadata.model_validate(payload["metadata"]).model_dump()
+                self.queue.enqueue(account, clip, metadata, review=False)
+            except Exception as exc:
+                logger.warning("Outbox manifest {} skipped ({})", manifest.name, type(exc).__name__)
 
     async def daemon(self):
         sources = load_items(self.cfg.sources_file, Source)

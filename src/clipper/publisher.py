@@ -1,7 +1,7 @@
 """Official API adapters. Tokens are account-specific environment references.
 
 Non-idempotent requests are deliberately not retried. Uncertain outcomes require
-operator reconciliation. Token refresh is delegated to the deployment secret manager.
+operator reconciliation. YouTube supports account-specific OAuth refresh credentials.
 """
 import asyncio
 import json
@@ -45,7 +45,7 @@ class Publisher:
 
     def client(self):
         token = os.environ.get(self.account.token_env)
-        if not token:
+        if not token and not self.account.refresh_token_env:
             raise ValueError(f"Missing token env for account {self.account.id}")
         proxy = os.environ.get(self.account.proxy_env) if self.account.proxy_env else None
         if self.account.proxy_env and not proxy:
@@ -53,8 +53,24 @@ class Publisher:
         return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"},
                                  proxy=proxy, timeout=300, follow_redirects=False)
 
+    async def authenticate(self, client):
+        if self.account.platform != "youtube" or not self.account.refresh_token_env:
+            return
+        refs = [self.account.refresh_token_env, self.account.client_id_env, self.account.client_secret_env]
+        values = [os.environ.get(ref, "") if ref else "" for ref in refs]
+        if not all(values):
+            raise ValueError("YouTube offline OAuth credentials are incomplete")
+        # Never send an old bearer credential to the OAuth endpoint.
+        request = client.build_request("POST", "https://oauth2.googleapis.com/token", data={
+            "grant_type": "refresh_token", "refresh_token": values[0],
+            "client_id": values[1], "client_secret": values[2]})
+        request.headers.pop("Authorization", None)
+        result = checked(await client.send(request))
+        client.headers["Authorization"] = "Bearer " + result["access_token"]
+
     async def publish(self, clip: Path, metadata: dict) -> tuple[str, str]:
         async with self.client() as client:
+            await self.authenticate(client)
             if self.account.platform == "youtube":
                 return await self.youtube(client, clip, metadata)
             if self.account.platform == "tiktok":
@@ -130,6 +146,7 @@ class Publisher:
 
     async def poll(self, remote_id: str) -> tuple[str, str]:
         async with self.client() as client:
+            await self.authenticate(client)
             account = self.account
             if account.platform == "youtube":
                 result = checked(await client.get("https://www.googleapis.com/youtube/v3/videos",
