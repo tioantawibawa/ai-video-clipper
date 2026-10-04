@@ -22,7 +22,8 @@ def test_oversized_ad_copy_is_not_accepted(monkeypatch, tmp_path):
         "headline": "x"*60, "description": "text", "video_script": "script", "call_to_action": "Watch"}]}))
     errors = []
     draft = asyncio.run(agent.prepare_ads({"briefs": [{"title": "Football"}]}, [], errors))
-    assert not draft["creatives"] and errors[0]["component"] == "ads_creative"
+    assert all(len(x['headline']) <= 40 for x in draft["creatives"])
+    assert draft["generation"].startswith('template_fallback') and errors[0]["component"] == "ads_creative"
 
 
 def test_readable_report(tmp_path):

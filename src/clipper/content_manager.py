@@ -43,6 +43,18 @@ class AdCreatives(BaseModel):
     creatives: list[AdCreative] = Field(min_length=1, max_length=3)
 
 
+def default_ads():
+    return AdCreatives(creatives=[AdCreative(
+        headline="Ronaldo & Man United: Fan Perspectives",
+        description="Independent football stories and interview moments. Watch our latest Shorts.",
+        video_script="Ronaldo. Manchester United. The conversations football fans keep coming back to. Explore interview moments and independent fan perspectives in short videos that get straight to the point. Watch our latest clip and share your perspective.",
+        call_to_action="Watch now"), AdCreative(
+        headline="Join the Football Conversation",
+        description="Explore Ronaldo and Manchester United stories from an independent fan channel.",
+        video_script="What makes a football moment worth talking about? Discover short interview excerpts and independent perspectives on Ronaldo and Manchester United. Watch, think, and add your own view to the conversation. Explore our latest Shorts.",
+        call_to_action="Explore Shorts")]).model_dump()["creatives"]
+
+
 def save_json(path, payload):
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -196,7 +208,8 @@ Return EXACTLY the requested number of days as separate entries in briefs, not o
             draft["creatives"] = generated.model_dump()["creatives"]
         except Exception as exc:
             errors.append({"component": "ads_creative", "error": type(exc).__name__})
-            draft["creatives"] = []
+            draft["creatives"] = default_ads()
+            draft["generation"] = "template_fallback_after_llm_validation_or_availability_failure"
         return draft
 
     async def run(self, force=False):
