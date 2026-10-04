@@ -1,5 +1,5 @@
 # Direct dependencies pinned. Compile a platform lock with scripts/lock.sh.
-yt-dlp==2026.8.19
+yt-dlp[default]==2026.8.19
 faster-whisper==1.2.1
 ffmpeg-python==0.2.0
 opencv-python-headless==4.11.0.86
