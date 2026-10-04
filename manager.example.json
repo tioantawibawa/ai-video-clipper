@@ -8,6 +8,7 @@
   "owned_video_limit": 30,
   "comments_per_video": 20,
   "max_reply_drafts": 10,
+  "reply_mode": "draft",
   "produce": false,
   "auto_cc_sources": false,
   "sources": [],

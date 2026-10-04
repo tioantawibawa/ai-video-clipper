@@ -1,4 +1,4 @@
-"""Durable snapshots and review-only replies; uncertain sends never retry."""
+"""Durable snapshots and comment replies; uncertain sends never retry."""
 import json
 import sqlite3
 import time

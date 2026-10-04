@@ -1,0 +1,11 @@
+[Unit]
+Description=Check clipper comments every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=30min
+RandomizedDelaySec=3min
+Unit=clipper-comments.service
+
+[Install]
+WantedBy=timers.target

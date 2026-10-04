@@ -1,5 +1,6 @@
 """Editorial policy, independent from rendering and publishing credentials."""
 from pathlib import Path
+from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 from .downloader import canonical_video
 
@@ -26,6 +27,7 @@ class ManagerConfig(BaseModel):
     owned_video_limit: int = Field(30, ge=1, le=200)
     comments_per_video: int = Field(20, ge=1, le=100)
     max_reply_drafts: int = Field(10, ge=0, le=30)
+    reply_mode: Literal["draft", "auto"] = "draft"
     produce: bool = False
     auto_cc_sources: bool = False
     sources: list[ApprovedSource] = Field(default_factory=list)

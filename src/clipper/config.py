@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     poll_seconds: int = Field(900, ge=30)
     outbox_dir: Path | None = None
     outbox_account: str = ""
+    manager_render: bool = True
     subprocess_timeout: int = 7200
 
     @model_validator(mode="after")

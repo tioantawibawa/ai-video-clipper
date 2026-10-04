@@ -79,6 +79,37 @@ def test_comment_permission_failure_stops_repeated_calls(tmp_path):
     assert "youtube.force-ssl" in errors[0]["action"]
 
 
+def test_automatic_replies_send_once_and_hold_sensitive(monkeypatch, tmp_path):
+    agent = manager(tmp_path)
+    agent.config.reply_mode = "auto"
+    agent.api.comments = AsyncMock(return_value=[
+        {"id": "a", "video_id": "v", "text": "Great"},
+        {"id": "b", "video_id": "v", "text": "Complaint"}])
+    agent.api.reply = AsyncMock(return_value="reply1")
+    monkeypatch.setattr("clipper.content_manager.ask", AsyncMock(side_effect=[
+        {"action": "draft", "text": "Thanks!", "reason": "Ordinary comment"},
+        {"action": "hold", "text": "", "reason": "Complaint"}]))
+    for _ in range(2):
+        asyncio.run(agent.draft_comments("channel", [{"id": "v", "title": "video"}], []))
+    agent.api.reply.assert_awaited_once_with("v", "a", "Thanks!")
+    states = {r["comment_id"]: r["state"] for r in agent.store.replies()}
+    assert states == {"a": "sent", "b": "rejected"}
+
+
+def test_automatic_reply_timeout_is_not_retried(monkeypatch, tmp_path):
+    agent = manager(tmp_path)
+    agent.config.reply_mode = "auto"
+    agent.api.comments = AsyncMock(return_value=[{"id": "a", "video_id": "v", "text": "Great"}])
+    agent.api.reply = AsyncMock(side_effect=TimeoutError())
+    monkeypatch.setattr("clipper.content_manager.ask", AsyncMock(return_value={
+        "action": "draft", "text": "Thanks!", "reason": "Ordinary"}))
+    errors = []
+    for _ in range(2):
+        asyncio.run(agent.draft_comments("c", [{"id": "v", "title": "video"}], errors))
+    assert agent.api.reply.await_count == 1
+    assert agent.store.replies()[0]["state"] == "uncertain"
+
+
 def test_daily_run_is_idempotent(tmp_path):
     agent = manager(tmp_path)
     day = str(datetime.now(agent.zone).date())
@@ -116,3 +147,18 @@ def test_production_ticket_consumed_once(tmp_path):
         assert json.loads(ticket.read_text())["state"] == "staged"
     finally:
         Pipeline.process = original
+
+
+def test_publication_only_vps_does_not_consume_production_ticket(monkeypatch, tmp_path):
+    agent = manager(tmp_path)
+    agent.config.produce = True
+    agent.config.sources = [ApprovedSource(url="https://youtu.be/test123",
+        rights_note="Original source approved for reuse", approved=True)]
+    asyncio.run(agent.produce([]))
+    agent.pipeline.cfg.manager_render = False
+    process = AsyncMock()
+    monkeypatch.setattr(Pipeline, "process", process)
+    asyncio.run(agent.pipeline.manager_production_tick())
+    process.assert_not_awaited()
+    ticket = next((agent.root / "production").glob("*.json"))
+    assert json.loads(ticket.read_text())["state"] == "pending"

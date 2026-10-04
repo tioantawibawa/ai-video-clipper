@@ -203,6 +203,8 @@ class Pipeline:
 
     async def manager_production_tick(self):
         """Consume one approved editorial ticket using this daemon's existing lock."""
+        if not self.cfg.manager_render:
+            return
         from .manager_config import ApprovedSource
         for ticket in sorted((self.root / "manager" / "production").glob("*.json")):
             payload = None

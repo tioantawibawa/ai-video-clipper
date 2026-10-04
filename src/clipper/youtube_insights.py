@@ -146,8 +146,12 @@ class YouTubeInsights:
             videos = await self.video_items(client, [video_id])
             if not videos or videos[0]["snippet"]["channelId"] != channel["id"]:
                 raise ValueError("Can only reply on the authenticated channel's video")
-            parent = (await self.get(client, "comments", part="snippet", id=comment_id)).get("items", [])
-            if not parent or parent[0]["snippet"].get("videoId") != video_id:
+            # comments.list does not return videoId. Validate the thread instead.
+            parent = (await self.get(client, "commentThreads", part="snippet", id=comment_id)).get("items", [])
+            if (not parent or parent[0]["snippet"].get("videoId") != video_id
+                    or parent[0]["snippet"].get("topLevelComment", {}).get("id") != comment_id
+                    or not parent[0]["snippet"].get("canReply", False)
+                    or parent[0]["snippet"].get("totalReplyCount", 0)):
                 raise ValueError("Comment no longer matches reviewed video")
             result = checked(await client.post(ROOT+"/comments", params={"part": "snippet"},
                 json={"snippet": {"parentId": comment_id, "textOriginal": text}}))

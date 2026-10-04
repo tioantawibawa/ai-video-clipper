@@ -1,6 +1,6 @@
 # Content manager
 
-The daily manager researches Cristiano Ronaldo and Manchester United, prepares a seven-day editorial calendar, evaluates the authenticated YouTube channel, drafts replies and prepares a YouTube Ads brief. It reuses the existing `openrouter/free -> Gemini -> paid OpenRouter` routing and durable publishing queue. No Google Ads launch or spending endpoint is implemented.
+The daily manager researches Cristiano Ronaldo and Manchester United, prepares a seven-day editorial calendar, evaluates the authenticated YouTube channel, prepares replies and a YouTube Ads brief. It reuses the existing `openrouter/free -> Gemini -> paid OpenRouter` routing and durable publishing queue. No Google Ads launch or spending endpoint is implemented. Replies default to `reply_mode:draft`; an explicitly authorized `reply_mode:auto` publishes ordinary new replies while holding unsuitable comments. See [laptop editing](laptop-editing.md) for the local rendering/VPS publishing workflow.
 
 ## Run
 
@@ -14,9 +14,9 @@ python -m clipper manager reply-review COMMENT_ID --approve --config data/vps/ma
 python -m clipper manager reply-review COMMENT_ID --reject --config data/vps/manager.json
 ```
 
-Use the same `CLIPPER_DATA_DIR`, accounts file and sources file as the deployed worker. Reports are saved under `data/vps/manager/YYYY-MM-DD.json` and `latest.json`; comment drafts live in `manager.sqlite3`. Review the original comment and exact draft text before approving. The manager never sends replies from its scheduled run. A timeout or crash during a send marks the outcome uncertain; inspect YouTube before changing the database, never blindly retry.
+Use the same `CLIPPER_DATA_DIR`, accounts file and sources file as the deployed worker. Reports are saved under `data/vps/manager/YYYY-MM-DD.json` and `latest.json`; comment replies live in `manager.sqlite3`. In draft mode, review the original comment and exact draft text before approving. Auto mode sends only ordinary new replies. A timeout or crash during a send marks the outcome uncertain; inspect YouTube before changing the database, never blindly retry.
 
-Daily runs are idempotent for the account's timezone. `--force` regenerates research and reports, while preserving source-ticket and reply deduplication. Logs contain exception classes rather than credential-containing HTTP errors. Protect reports because they contain comment text. Aggregate snapshots are retained for 90 days; review/delete old comment drafts according to your retention needs.
+Daily runs are idempotent for the account's timezone. `--force` regenerates research and reports, while preserving source-ticket and reply deduplication; auto mode can send newly discovered ordinary replies. Logs contain exception classes rather than credential-containing HTTP errors. Protect reports because they contain comment text. Aggregate snapshots are retained for 90 days; review/delete old comment drafts according to your retention needs.
 
 ## Production and upload
 
