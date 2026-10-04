@@ -36,6 +36,13 @@ Preserve free OpenRouter -> Gemini -> paid OpenRouter. Use a dedicated SSH key
 installed with the owner's explicit approval, and pin the VPS host key. Do not
 commit keys, cookies or API secrets. FFmpeg must be on the worker's PATH.
 
+If the owner explicitly approves moving LLM keys from the VPS to this laptop,
+`python -m clipper.local_worker --config data/local-worker.json --sync-env` copies
+only whitelisted LLM settings through pinned SSH. It excludes YouTube/account
+credentials. On Windows, restrict the resulting file's ACL to the owner and
+SYSTEM; Python's chmod alone does not protect a Windows file. Restart the local
+worker after changing its environment file.
+
 Start with `powershell -File scripts/start-local-worker.ps1`; use `-Once` for
 one pass. This script does not register automatic startup after a laptop reboot.
 

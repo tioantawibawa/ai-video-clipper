@@ -67,3 +67,20 @@ def test_transfer_checks_hash_and_promotes_manifest_last(monkeypatch, tmp_path):
     assert "sha256sum -c" in command
     assert command.index(".mp4.part") < command.index(".json.part")
     assert "StrictHostKeyChecking=yes" in run.await_args_list[0].args
+
+
+def test_sync_copies_only_whitelisted_llm_settings(monkeypatch, tmp_path):
+    cfg = config(tmp_path)
+    monkeypatch.setattr(worker, "run", AsyncMock(return_value=json.dumps({
+        "CLIPPER_LLM_MODEL": "openrouter/free", "CLIPPER_OPENROUTER_API_KEY": "test-key"})))
+    asyncio.run(worker.sync_env(cfg))
+    assert "YOUTUBE" not in cfg.env_file.read_text()
+    assert "openrouter/free" in cfg.env_file.read_text()
+
+
+def test_sync_rejects_account_credentials(monkeypatch, tmp_path):
+    cfg = config(tmp_path)
+    monkeypatch.setattr(worker, "run", AsyncMock(return_value='{"YOUTUBE_REFRESH_TOKEN":"test"}'))
+    with pytest.raises(ValueError, match="Unexpected"):
+        asyncio.run(worker.sync_env(cfg))
+    assert not cfg.env_file.exists()

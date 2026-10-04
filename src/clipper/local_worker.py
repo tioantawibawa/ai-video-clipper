@@ -3,6 +3,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import shlex
 import sys
 from pathlib import Path
 
@@ -49,8 +50,28 @@ def inside(root, name):
 
 def ssh_options(cfg):
     return ["-i", str(cfg.ssh_key.resolve()), "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
-            "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile="+str(cfg.known_hosts.resolve()),
+            "-o", "StrictHostKeyChecking=yes", "-o", 'UserKnownHostsFile="'+cfg.known_hosts.resolve().as_posix()+'"',
             "-o", "ConnectTimeout=15"]
+
+
+async def sync_env(cfg):
+    """Copy only LLM settings over pinned SSH; never expose values in logs."""
+    names = ["CLIPPER_LLM_PROVIDER", "CLIPPER_LLM_MODEL", "CLIPPER_LLM_FALLBACK_ENABLED",
+             "CLIPPER_OPENROUTER_API_KEY", "CLIPPER_GEMINI_API_KEY", "CLIPPER_GEMINI_FALLBACK_MODEL",
+             "CLIPPER_OPENROUTER_PAID_MODEL", "CLIPPER_OPENAI_API_KEY", "CLIPPER_ANTHROPIC_API_KEY"]
+    code = ("import json; from dotenv import dotenv_values; d=dotenv_values('.env'); "
+            +"print(json.dumps({k:d[k] for k in "+repr(names)+" if d.get(k)}))")
+    command = "cd /home/ubuntu/ai-video-clipper && .venv/bin/python -c "+shlex.quote(code)
+    values = json.loads(await run("ssh", *ssh_options(cfg), cfg.host, command, timeout=60))
+    if not isinstance(values, dict) or set(values)-set(names):
+        raise ValueError("Unexpected remote environment settings")
+    if not any(values.get(x) for x in names if x.endswith("API_KEY")):
+        raise ValueError("No LLM credentials configured on VPS")
+    values.update(CLIPPER_CPU_THREADS="4", CLIPPER_WHISPER_MODEL="small.en", CLIPPER_DEVICE="auto")
+    cfg.env_file.parent.mkdir(parents=True, exist_ok=True)
+    cfg.env_file.write_text("\n".join(k+"="+json.dumps(v) for k, v in values.items())+"\n", encoding="utf-8")
+    cfg.env_file.chmod(0o600)
+    logger.info("Local LLM configuration synchronized; OAuth/account credentials were excluded")
 
 
 async def deliver(cfg, clip, manifest):
@@ -132,6 +153,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--sync-env", action="store_true", help="Copy LLM settings from the configured VPS")
     args = parser.parse_args()
     cfg = WorkerConfig.model_validate_json(args.config.read_text(encoding="utf-8-sig"))
     logger.remove()
@@ -139,7 +161,7 @@ def main():
     logger.add(sys.stderr, backtrace=False, diagnose=False)
     logger.add(cfg.output / "worker.log", rotation="10 MB", retention="14 days", backtrace=False, diagnose=False)
     try:
-        asyncio.run(watch(cfg, args.once))
+        asyncio.run(sync_env(cfg) if args.sync_env else watch(cfg, args.once))
     except KeyboardInterrupt:
         raise SystemExit(130) from None
     except Exception as exc:
