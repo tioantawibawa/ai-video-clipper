@@ -9,13 +9,22 @@ from .models import Word
 from .process import run
 
 
-def local_transcribe(path: Path, cfg: Settings) -> list[Word]:
+def transcription_device(requested: str) -> str:
+    if requested != "auto":
+        return requested
     import ctranslate2
+    try:
+        if ctranslate2.get_cuda_device_count() and "float16" in ctranslate2.get_supported_compute_types("cuda"):
+            return "cuda"
+    except (RuntimeError, ValueError):
+        pass
+    return "cpu"
+
+
+def local_transcribe(path: Path, cfg: Settings) -> list[Word]:
     from faster_whisper import WhisperModel
 
-    device = cfg.device
-    if device == "auto":
-        device = "cuda" if ctranslate2.get_cuda_device_count() else "cpu"
+    device = transcription_device(cfg.device)
     model = WhisperModel(cfg.whisper_model, device=device,
                          compute_type="float16" if device == "cuda" else "int8",
                          cpu_threads=cfg.cpu_threads)
