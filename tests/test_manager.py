@@ -1,7 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -71,6 +70,15 @@ def test_no_automatic_comment_send(monkeypatch, tmp_path):
         asyncio.run(agent.approve_reply("a"))
 
 
+def test_comment_permission_failure_stops_repeated_calls(tmp_path):
+    agent = manager(tmp_path)
+    agent.api.comments = AsyncMock(side_effect=PermissionError("scope"))
+    errors = []
+    asyncio.run(agent.draft_comments("c", [{"id": "1", "title": "a"}, {"id": "2", "title": "b"}], errors))
+    assert agent.api.comments.await_count == 1
+    assert "youtube.force-ssl" in errors[0]["action"]
+
+
 def test_daily_run_is_idempotent(tmp_path):
     agent = manager(tmp_path)
     day = str(datetime.now(agent.zone).date())
@@ -97,7 +105,9 @@ def test_production_ticket_consumed_once(tmp_path):
     agent.config.sources = [ApprovedSource(url="https://youtu.be/test123", rights_note="Owned footage approved by owner", approved=True)]
     asyncio.run(agent.produce([]))
     original = Pipeline.process
-    Pipeline.process = AsyncMock(return_value=Path("manifest.json"))
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text('{"clips": []}')
+    Pipeline.process = AsyncMock(return_value=manifest)
     try:
         asyncio.run(agent.pipeline.manager_production_tick())
         asyncio.run(agent.pipeline.manager_production_tick())

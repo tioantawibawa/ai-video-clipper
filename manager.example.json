@@ -9,6 +9,7 @@
   "comments_per_video": 20,
   "max_reply_drafts": 10,
   "produce": false,
+  "auto_cc_sources": false,
   "sources": [],
   "video_review": true,
   "ads_daily_budget_usd": null,

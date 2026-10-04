@@ -29,6 +29,10 @@ class Queue:
                 CREATE TABLE IF NOT EXISTS episodes (
                     url TEXT PRIMARY KEY, state TEXT NOT NULL, updated REAL NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS observed_posts (
+                    account TEXT NOT NULL, remote_id TEXT NOT NULL, published REAL NOT NULL,
+                    PRIMARY KEY(account,remote_id)
+                );
             """)
 
     @contextmanager
@@ -52,6 +56,7 @@ class Queue:
             # Unknown outcomes consume quota until manually reconciled.
             count = db.execute("SELECT COUNT(*) FROM jobs WHERE account=? AND due>=? AND due<? "
                                "AND state NOT IN ('rejected','failed')", (account.id, start, end)).fetchone()[0]
+            count += self._observed_count(db, account.id, start, end)
             if count >= limit:
                 continue
             latest = db.execute("SELECT MAX(due) FROM jobs WHERE account=? "
@@ -97,6 +102,17 @@ class Queue:
                 account = accounts.get(row["account"])
                 if not account:
                     continue
+                zone = ZoneInfo(account.timezone)
+                date = datetime.fromtimestamp(now, zone).date()
+                start = datetime.combine(date, day_time.min, zone).timestamp()
+                end = datetime.combine(date+timedelta(days=1), day_time.min, zone).timestamp()
+                posted = db.execute("SELECT COUNT(*) FROM jobs WHERE account=? AND due>=? AND due<? AND state IN ('published','processing','uploading','uncertain')", (account.id, start, end)).fetchone()[0]
+                posted += self._observed_count(db, account.id, start, end)
+                if posted >= (account.daily_limit if account.warmed else 1):
+                    db.execute("UPDATE jobs SET state='failed' WHERE id=?", (row['id'],))
+                    due = self._reserve(db, account, now)
+                    db.execute("UPDATE jobs SET state='queued',due=?,updated=? WHERE id=?", (due, now, row['id']))
+                    continue
                 # Re-book overdue jobs, avoiding catch-up bursts after downtime.
                 if row["due"] < now - 300:
                     db.execute("UPDATE jobs SET state='failed' WHERE id=?", (row["id"],))
@@ -110,6 +126,20 @@ class Queue:
                 db.execute("UPDATE jobs SET state='uploading',updated=? WHERE id=?", (now, row["id"]))
                 return dict(row)
         return None
+
+    @staticmethod
+    def _observed_count(db, account, start, end):
+        return db.execute("SELECT COUNT(*) FROM observed_posts p WHERE account=? AND published>=? AND published<? "
+                          "AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.account=p.account AND j.remote_id=p.remote_id "
+                          "AND j.state IN ('published','processing','uploading','uncertain'))", (account, start, end)).fetchone()[0]
+
+    def observe_posts(self, account, videos):
+        """Count verified platform uploads, including those posted manually outside the queue."""
+        with self.connect() as db:
+            for video in videos:
+                stamp = datetime.fromisoformat(video['published_at'].replace('Z', '+00:00')).timestamp()
+                db.execute("INSERT INTO observed_posts VALUES(?,?,?) ON CONFLICT(account,remote_id) DO UPDATE SET published=excluded.published",
+                           (account, video['id'], stamp))
 
     def set_state(self, job_id: int, state: str, remote_id: str | None = None, error: str | None = None):
         if state not in {"published", "processing", "uncertain", "failed"}:

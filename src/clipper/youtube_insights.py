@@ -89,11 +89,44 @@ class YouTubeInsights:
             return {"available": True, "start_date": str(end-timedelta(days=28)), "end_date": str(end),
                     "columns": [x["name"] for x in result.get("columnHeaders", [])], "rows": result.get("rows", [])}
 
+    async def licensed_sources(self, config):
+        """Search medium-length CC-labelled videos; recheck returned license metadata."""
+        from .manager_config import ApprovedSource
+        result = []
+        async with self.publisher.client() as client:
+            await self.publisher.authenticate(client)
+            channel = await self.channel(client)
+            cutoff = (datetime.now(timezone.utc)-timedelta(days=config.lookback_days)).isoformat()
+            for topic in config.topics:
+                found = await self.get(client, "search", part="snippet", type="video", q=topic,
+                    videoLicense="creativeCommon", videoDuration="medium", publishedAfter=cutoff,
+                    regionCode=config.region, relevanceLanguage=config.language, order="relevance", maxResults=10)
+                ids = [x["id"]["videoId"] for x in found.get("items", [])]
+                for item in await self.video_items(client, ids):
+                    if item.get("status", {}).get("license") != "creativeCommon" or item["snippet"]["channelId"] == channel["id"]:
+                        continue
+                    snippet = item["snippet"]
+                    url = "https://www.youtube.com/watch?v="+item["id"]
+                    attribution = (f"Source: {snippet['title']} by {snippet.get('channelTitle', snippet['channelId'])}; {url}. "
+                                   "License: Creative Commons Attribution, as labelled on YouTube. "
+                                   "License information: https://support.google.com/youtube/answer/2797468. "
+                                   "Changes: excerpted, cropped, silence trimmed and subtitled.")
+                    result.append(ApprovedSource(url=url, approved=True, attribution=attribution[:1000],
+                        rights_note="YouTube Data API status.license=creativeCommon checked "+datetime.now(timezone.utc).isoformat()))
+        return result
+
     async def comments(self, video_id, channel_id, limit):
         async with self.publisher.client() as client:
             await self.publisher.authenticate(client)
-            result = await self.get(client, "commentThreads", part="snippet", videoId=video_id,
-                                    order="time", textFormat="plainText", maxResults=limit)
+            response = await client.get(ROOT+"/commentThreads", params={"part": "snippet", "videoId": video_id,
+                                       "order": "time", "textFormat": "plainText", "maxResults": limit})
+            if response.status_code == 403:
+                reasons = {x.get("reason") for x in response.json().get("error", {}).get("errors", [])}
+                if "commentsDisabled" in reasons:
+                    return []
+                if reasons.intersection({"insufficientPermissions", "forbidden", "quotaExceeded", "dailyLimitExceeded"}):
+                    raise PermissionError("Comment access or quota unavailable")
+            result = checked(response)
         output = []
         for item in result.get("items", []):
             thread = item["snippet"]

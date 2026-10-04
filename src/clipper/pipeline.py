@@ -221,7 +221,14 @@ class Pipeline:
                 else:
                     try:
                         agent = Pipeline(self.cfg.model_copy(update={"review": payload.get("review", True), "max_clips": 1}))
-                        payload["manifest"] = str(await agent.process(source.url, [account.id]))
+                        manifest = await agent.process(source.url, [])
+                        media = json.loads(manifest.read_text(encoding="utf-8"))
+                        for clip in media["clips"]:
+                            if source.attribution:
+                                clip["metadata"]["description"] = clip["metadata"]["description"][:900]+"\n"+source.attribution
+                            self.queue.enqueue(account, self.stage / clip["file"], clip["metadata"], payload.get("review", True))
+                        self.write_ticket(manifest, media)
+                        payload["manifest"] = str(manifest)
                         self.queue.episode_finish(source.url, True)
                         payload["state"] = "staged"
                     except Exception:

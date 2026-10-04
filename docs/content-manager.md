@@ -20,6 +20,8 @@ Daily runs are idempotent for the account's timezone. `--force` regenerates rese
 
 ## Production and upload
 
+Optional autonomous source discovery: enable `produce:true` and `auto_cc_sources:true` to search recent medium-length videos labelled Creative Commons on YouTube. The API license is checked again before creating a ticket and attribution (title, creator, URL, licence information and edit notice) is added to the output description. These are platform license labels, not a guarantee that a third-party uploader owns every element. [YouTube licence documentation](https://support.google.com/youtube/answer/2797468). Keep `video_review:true` for initial editorial checks; change it to false when you want approved-source clips to publish automatically. The daily quota also counts owned videos uploaded manually outside this queue.
+
 Set `produce` to true and list sources that you are allowed to reuse:
 
 ```json

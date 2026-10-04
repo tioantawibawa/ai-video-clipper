@@ -8,6 +8,7 @@ class ApprovedSource(BaseModel):
     url: str
     rights_note: str = Field(min_length=10)
     approved: bool = False
+    attribution: str = Field("", max_length=1000)
 
     @model_validator(mode="after")
     def canonical(self):
@@ -26,6 +27,7 @@ class ManagerConfig(BaseModel):
     comments_per_video: int = Field(20, ge=1, le=100)
     max_reply_drafts: int = Field(10, ge=0, le=30)
     produce: bool = False
+    auto_cc_sources: bool = False
     sources: list[ApprovedSource] = Field(default_factory=list)
     video_review: bool = True
     ads_daily_budget_usd: float | None = Field(None, gt=0, le=10000)
