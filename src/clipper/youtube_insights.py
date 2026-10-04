@@ -108,6 +108,7 @@ class YouTubeInsights:
                     snippet = item["snippet"]
                     url = "https://www.youtube.com/watch?v="+item["id"]
                     attribution = (f"Source: {snippet['title']} by {snippet.get('channelTitle', snippet['channelId'])}; {url}. "
+                                   f"Source uploaded: {snippet.get('publishedAt', 'unknown')}; event date not established by upload date. "
                                    "License: Creative Commons Attribution, as labelled on YouTube. "
                                    "License information: https://support.google.com/youtube/answer/2797468. "
                                    "Changes: excerpted, cropped, silence trimmed and subtitled.")

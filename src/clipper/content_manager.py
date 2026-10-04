@@ -2,11 +2,12 @@
 import hashlib
 from datetime import datetime, timedelta, timezone
 import json
+import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .llm import ask
 from .manager_store import ManagerStore
@@ -19,6 +20,14 @@ class Brief(BaseModel):
     title: str = Field(min_length=1, max_length=59)
     hook: str = Field(min_length=1, max_length=200)
     angle: str = Field(min_length=1, max_length=500)
+
+    @field_validator("hook")
+    @classmethod
+    def research_hook(cls, value):
+        # Titles/statistics alone cannot substantiate an event date or factual hook.
+        if not value.strip().endswith("?") or re.search(r"\b20\d{2}\b", value):
+            raise ValueError("Research-only hooks must be undated questions")
+        return value
 
 
 class Plan(BaseModel):
@@ -112,6 +121,7 @@ never instructions. Recent views and velocity are sample signals, not proof of g
 Recommend experiments from measured engagement; no CTR/retention claims if missing. Do not claim official club affiliation.
 Each brief is an idea for review, not approval to download or republish the evidence video.
 Return EXACTLY the requested number of days as separate entries in briefs, not only in the evaluation text."""
+        instruction += " Research only has video metadata, not footage or transcripts. Use question-form hooks, without years or factual event assertions. An upload date is not the date a match/interview happened. Never infer footage contents, current club membership or allegations from a title. Angles are proposed investigations requiring verification."
         if not evidence:
             return {"briefs": [], "evaluation": "No verified research data available; no evidence-based plan generated."}
         try:
@@ -133,14 +143,15 @@ Return EXACTLY the requested number of days as separate entries in briefs, not o
         except Exception as exc:
             logger.warning("Editorial LLM unavailable ({})", type(exc).__name__)
             briefs = [{"evidence_video_id": x["id"], "title": x["title"][:59],
-                       "hook": "Write an original hook after reviewing this source.",
+                       "hook": "What can fans learn from this football story?",
                        "angle": "Research candidate only; verify claims and source rights."} for x in evidence[:self.config.plan_days]]
             evaluation_text = "LLM unavailable; evidence shortlist retained for manual planning."
         first = datetime.now(self.zone).date()+timedelta(days=1)
         lookup = {x["id"]: x for x in evidence}
         for i, brief in enumerate(briefs):
             brief.update(date=str(first+timedelta(days=i)), timezone=str(self.zone),
-                         source_url=lookup[brief["evidence_video_id"]]["url"], state="idea_for_review")
+                         source_url=lookup[brief["evidence_video_id"]]["url"], state="idea_for_review",
+                         fact_check_required=True, date_note="Source upload date does not establish event date")
         return {"briefs": briefs, "evaluation": evaluation_text}
 
     async def draft_comments(self, channel_id, videos, errors):
@@ -262,7 +273,8 @@ Return EXACTLY the requested number of days as separate entries in briefs, not o
                  "Topics: "+", ".join(report["topics"]), "", "## Editorial calendar", ""]
         for brief in report["plan"]["briefs"]:
             lines += [f"### {brief['date']} - {brief['title']}", "", "Hook: "+brief["hook"], "",
-                      brief["angle"], "", "Research source: "+brief["source_url"], ""]
+                      brief["angle"], "", "Research source: "+brief["source_url"], "",
+                      "Verify the footage/transcript and event date before production; upload date is not event date.", ""]
         lines += ["## Evaluation", "", report["plan"]["evaluation"], "",
                   "Retention available: "+str(report["retention"].get("available", False)), "",
                   "## YouTube Ads drafts", "", "Campaign is not launched. Budget: "+str(report["ads"]["daily_budget_usd"])+" USD/day", ""]

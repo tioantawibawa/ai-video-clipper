@@ -2,6 +2,8 @@ import asyncio
 from unittest.mock import AsyncMock
 
 from clipper.content_manager import ContentManager
+from clipper.content_manager import Brief
+import pytest
 from test_manager import manager
 
 
@@ -32,3 +34,9 @@ def test_readable_report(tmp_path):
         "plan": {"briefs": [], "evaluation": "No data"}, "retention": {"available": False},
         "ads": {"daily_budget_usd": None}, "production": {"enabled": False}, "reply_drafts": [], "errors": []})
     assert "Campaign is not launched" in path.read_text()
+
+
+def test_metadata_only_hook_does_not_assert_current_event():
+    with pytest.raises(ValueError):
+        Brief(evidence_video_id='v',title='Ronaldo',hook='October 2026 footage shows Ronaldo at United.',angle='x')
+    assert Brief(evidence_video_id='v',title='Ronaldo',hook='What can United learn from this interview?',angle='Verify transcript').hook.endswith('?')
