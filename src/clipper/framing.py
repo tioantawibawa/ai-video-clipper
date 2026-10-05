@@ -35,6 +35,13 @@ def framing(media: Path, moment: Moment, cfg: Settings, intervals=None) -> str:
     dubbing and camera cuts still require review. Two simultaneously moving mouths
     get stacked panels when consistently observed; low confidence uses center crop.
     """
+    if cfg.framing_mode == "fit":
+        # Keep gameplay, slides and screen recordings readable without cropping.
+        return (f"split=2[fitbg][fitfg];[fitbg]scale={cfg.width}:{cfg.height}:"
+                f"force_original_aspect_ratio=increase,crop={cfg.width}:{cfg.height},"
+                "boxblur=24:2[fitblur];"
+                f"[fitfg]scale={cfg.width}:{cfg.height}:force_original_aspect_ratio=decrease[fitcontent];"
+                "[fitblur][fitcontent]overlay=(W-w)/2:(H-h)/2,setsar=1")
     import cv2
 
     duration = moment.end - moment.start

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     max_clips: int = Field(3, ge=1, le=20)
     width: int = 1080
     height: int = 1920
+    framing_mode: Literal["speaker", "fit"] = "speaker"
     font: str = Field("DejaVu Sans", pattern=r"^[\w -]+$")
     font_size: int = Field(68, ge=10, le=120)
     highlight: str = Field("FFFF00", pattern=r"^[0-9A-Fa-f]{6}$")
