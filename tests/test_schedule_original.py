@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import httpx
+import pytest
 
 from clipper.scheduler import Queue
 
@@ -30,6 +31,9 @@ def test_reserve_upload_verify_and_repeat_without_duplicate(tmp_path, monkeypatc
             return "processing", "original123"
         def client(self):
             def handler(request):
+                if request.method == "PUT":
+                    assert json.loads(request.content)["id"] == "original123"
+                    calls[0]["publish_at"] = json.loads(request.content)["status"]["publishAt"]
                 return httpx.Response(200, json={"items":[{"status":{
                     "privacyStatus":"private", "publishAt":calls[0]["publish_at"]}}]})
             return httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -46,3 +50,15 @@ def test_reserve_upload_verify_and_repeat_without_duplicate(tmp_path, monkeypatc
     queue = Queue(database)
     queue.recover()
     assert queue.rows()[0]["state"] == "scheduled"
+    queue.set_state(rows[0]["id"], "held", "original123")
+    with pytest.raises(ValueError, match="Related Video"):
+        asyncio.run(module.schedule(clip, manifest, accounts, database, "test", resume_held=True))
+    assert queue.rows()[0]["state"] == "held"
+    assert len(calls) == 1
+    payload = json.loads(manifest.read_text())
+    payload["related_video_confirmed"] = True
+    manifest.write_text(json.dumps(payload))
+    asyncio.run(module.schedule(clip, manifest, accounts, database, "test", resume_held=True))
+    assert queue.rows()[0]["state"] == "scheduled"
+    assert queue.rows()[0]["remote_id"] == "original123"
+    assert len(calls) == 1

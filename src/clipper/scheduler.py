@@ -131,7 +131,7 @@ class Queue:
     def _observed_count(db, account, start, end):
         return db.execute("SELECT COUNT(*) FROM observed_posts p WHERE account=? AND published>=? AND published<? "
                           "AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.account=p.account AND j.remote_id=p.remote_id "
-                          "AND j.state IN ('published','processing','uploading','uncertain','scheduled'))", (account, start, end)).fetchone()[0]
+                          "AND j.state IN ('published','processing','uploading','uncertain','scheduled','held'))", (account, start, end)).fetchone()[0]
 
     def observe_posts(self, account, videos):
         """Count verified platform uploads, including those posted manually outside the queue."""
@@ -142,7 +142,7 @@ class Queue:
                            (account, video['id'], stamp))
 
     def set_state(self, job_id: int, state: str, remote_id: str | None = None, error: str | None = None):
-        if state not in {"published", "processing", "uncertain", "failed", "scheduled"}:
+        if state not in {"published", "processing", "uncertain", "failed", "scheduled", "held"}:
             raise ValueError("Invalid result state")
         with self.connect() as db:
             db.execute("UPDATE jobs SET state=?,remote_id=COALESCE(?,remote_id),error=?,updated=? WHERE id=?",

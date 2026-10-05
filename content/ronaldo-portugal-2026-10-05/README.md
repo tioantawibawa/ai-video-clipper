@@ -37,6 +37,15 @@ day remains in effect. Once the main episode becomes Public, add it to each Shor
 using Studio's Related Video control. This control is not implemented by the public
 YouTube Data API adapter. A URL in the description is not a substitute.
 
+If advanced features are unavailable, keep funnel Shorts private with no
+`publishAt` and mark their queue rows `held`. After the main video is public and
+Related Video has actually been saved in Studio, record `related_video_confirmed:
+true` in each private upload's manifest and run the same scheduler with
+`--resume-held`. It schedules the existing video ID in a fresh daily slot; it
+never uploads the file again. Do not set that confirmation flag before verifying
+the Studio control. The account owner must complete any requested identity/video
+verification through YouTube; do not collect identity documents in this project.
+
 ## Packaging candidates
 
 1. **Ronaldo Left Portugal. So Why Is the Door Still Open?** — NOT OVER?

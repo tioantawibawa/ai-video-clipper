@@ -17,7 +17,7 @@ from clipper.publisher import Publisher
 from clipper.scheduler import Queue
 
 
-async def schedule(clip, manifest, account_file, queue_file, account_id, thumbnail=None):
+async def schedule(clip, manifest, account_file, queue_file, account_id, thumbnail=None, resume_held=False):
     load_dotenv(".env")
     account = next(Account.model_validate(a) for a in json.loads(account_file.read_text()) if a["id"] == account_id)
     payload = json.loads(manifest.read_text())
@@ -28,23 +28,43 @@ async def schedule(clip, manifest, account_file, queue_file, account_id, thumbna
         db.execute("BEGIN IMMEDIATE")
         existing = db.execute("SELECT * FROM jobs WHERE account=? AND clip=?",
                               (account.id, str(clip.resolve()))).fetchone()
-        if existing:
+        if resume_held:
+            if not existing or existing["state"] != "held" or not existing["remote_id"]:
+                raise ValueError("Resume requires an existing held upload")
+            if not payload.get("related_video_confirmed"):
+                raise ValueError("Verify and save Related Video in Studio before resuming")
+            # Free only this old reservation, then book a fresh quota-safe release.
+            db.execute("UPDATE jobs SET state='rejected' WHERE id=?", (existing["id"],))
+            now = datetime.now(timezone.utc).timestamp()
+            due = queue._reserve(db, account, now + 900)
+            meta["publish_at"] = datetime.fromtimestamp(due, timezone.utc).isoformat()
+            job, remote_id = existing["id"], existing["remote_id"]
+            db.execute("UPDATE jobs SET state='uncertain',due=?,metadata=?,updated=? WHERE id=?",
+                       (due, json.dumps(meta), now, job))
+        elif existing:
             print(json.dumps({"id": existing["id"], "state": existing["state"], "remote_id": existing["remote_id"],
                               "scheduled_at": datetime.fromtimestamp(existing["due"], timezone.utc).isoformat(),
                               "existing": True, "thumbnail_uploaded": payload.get("thumbnail_uploaded", False)}))
             return
-        now = datetime.now(timezone.utc).timestamp()
-        # Leave time for processing and Studio checks before public release.
-        due = queue._reserve(db, account, now + 900)
-        if due < now+900:
-            raise ValueError("Reservation too close; reconcile quota before uploading")
-        meta["publish_at"] = datetime.fromtimestamp(due, timezone.utc).isoformat()
-        row = db.execute("INSERT INTO jobs(account,clip,metadata,state,due,updated) VALUES(?,?,?,?,?,?)",
-                         (account.id, str(clip.resolve()), json.dumps(meta), "uncertain", due, now))
-        job = row.lastrowid
+        else:
+            now = datetime.now(timezone.utc).timestamp()
+            # Leave time for processing and Studio checks before public release.
+            due = queue._reserve(db, account, now + 900)
+            meta["publish_at"] = datetime.fromtimestamp(due, timezone.utc).isoformat()
+            row = db.execute("INSERT INTO jobs(account,clip,metadata,state,due,updated) VALUES(?,?,?,?,?,?)",
+                             (account.id, str(clip.resolve()), json.dumps(meta), "uncertain", due, now))
+            job = row.lastrowid
     publisher = Publisher(account)
     try:
-        state, remote_id = await publisher.publish(clip, meta)
+        if resume_held:
+            async with publisher.client() as client:
+                await publisher.authenticate(client)
+                response = await client.put("https://www.googleapis.com/youtube/v3/videos",
+                    params={"part": "status"}, json={"id": remote_id, "status": {
+                        "privacyStatus": "private", "publishAt": meta["publish_at"], "selfDeclaredMadeForKids": False}})
+                response.raise_for_status()
+        else:
+            state, remote_id = await publisher.publish(clip, meta)
     except Exception as exc:
         queue.set_state(job, "uncertain", error=type(exc).__name__)
         raise
@@ -95,5 +115,6 @@ if __name__ == "__main__":
     parser.add_argument("--queue", type=Path, default=Path("data/vps/queue.sqlite3"))
     parser.add_argument("--account", default="podcast-us-youtube")
     parser.add_argument("--thumbnail", type=Path)
+    parser.add_argument("--resume-held", action="store_true", help="Reschedule the existing private upload after Related Video is verified")
     args = parser.parse_args()
-    asyncio.run(schedule(args.clip, args.manifest, args.accounts, args.queue, args.account, args.thumbnail))
+    asyncio.run(schedule(args.clip, args.manifest, args.accounts, args.queue, args.account, args.thumbnail, args.resume_held))
