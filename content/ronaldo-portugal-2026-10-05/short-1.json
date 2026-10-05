@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "title": "Leaving Camp Isn't Retirement",
+    "description": "Original football analysis with tactical illustrations and synthetic English narration. Facts checked October 5, 2026; future developments may change the news. No match footage or simulated results are presented as evidence.\n\nSources:\nhttps://efe.com/deportes/2026-09-30/cristiano-ronaldo-federacion-concentracion-seleccion/\nhttps://madeira.rtp.pt/desporto/jesus-fala-em-mal-entendido-e-diz-que-ronaldo-tem-as-portas-abertas/",
+    "hashtags": [
+      "#Ronaldo",
+      "#Portugal",
+      "#Football"
+    ]
+  },
+  "vertical": true,
+  "voice": "en-US-GuyNeural",
+  "checked_on": "2026-10-05",
+  "sources": [
+    "https://efe.com/deportes/2026-09-30/cristiano-ronaldo-federacion-concentracion-seleccion/",
+    "https://madeira.rtp.pt/desporto/jesus-fala-em-mal-entendido-e-diz-que-ronaldo-tem-as-portas-abertas/"
+  ],
+  "scenes": [
+    {
+      "heading": "Leaving Camp Isn't Retirement",
+      "mode": "timeline",
+      "points": [
+        "Departure is not retirement",
+        "A return remains possible"
+      ],
+      "narration": "Did Ronaldo leaving Portugal's camp mean he retired from international football? That's not what the confirmed information says. The federation confirmed his departure. Then Jorge Jesus said the door was still open. Those are two different developments. The bigger question is what role Ronaldo would return to. I've broken down the timeline and the football in the full video. Tap the related video below my channel name."
+    }
+  ]
+}

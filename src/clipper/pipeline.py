@@ -105,6 +105,22 @@ class Pipeline:
     async def publish_tick(self):
         self.scan_outbox()
         for row in self.queue.rows():
+            if row["state"] == "scheduled" and row["due"] <= time.time() and row["remote_id"]:
+                account = self.accounts.get(row["account"])
+                if account and account.platform == "youtube":
+                    try:
+                        publisher = Publisher(account)
+                        async with publisher.client() as client:
+                            await publisher.authenticate(client)
+                            response = await client.get("https://www.googleapis.com/youtube/v3/videos",
+                                params={"part": "status", "id": row["remote_id"]})
+                            response.raise_for_status()
+                            items = response.json().get("items", [])
+                            if items and items[0]["status"].get("privacyStatus") == "public":
+                                self.queue.set_state(row["id"], "published", row["remote_id"])
+                    except Exception as exc:
+                        logger.warning("Scheduled release {} awaiting verification ({})", row["id"], type(exc).__name__)
+                continue
             if row["state"] != "processing" or row["account"] not in self.accounts:
                 continue
             # Instagram poll can perform a non-idempotent media_publish.

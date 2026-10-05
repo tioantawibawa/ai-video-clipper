@@ -62,3 +62,25 @@ def test_tiktok_draft_signed_upload_and_inbox_status(tmp_path, monkeypatch):
         transport=httpx.MockTransport(handler), headers={"Authorization": "Bearer test"}))
     assert asyncio.run(publisher.publish(clip, {})) == ("processing", "draft1")
     assert asyncio.run(publisher.poll("draft1")) == ("awaiting_creator", "draft1")
+
+
+def test_scheduled_youtube_upload_is_private_with_future_release(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    clip = tmp_path / "video.mp4"
+    clip.write_bytes(b"media")
+    due = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    async def handler(request):
+        if request.method == "POST":
+            status = json.loads(request.content)["status"]
+            assert status["privacyStatus"] == "private"
+            assert status["publishAt"] == due
+            return httpx.Response(200, headers={"Location": "https://www.googleapis.com/session"})
+        return httpx.Response(200, json={"id": "scheduled123"})
+    async def test():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            publisher = Publisher(Account(id="test", platform="youtube", privacy="public", token_env="T"))
+            meta = {"title": "Title", "description": "Text", "hashtags": [], "publish_at": due}
+            assert await publisher.youtube(client, clip, meta) == ("processing", "scheduled123")
+            with pytest.raises(ValueError):
+                await publisher.youtube(client, clip, {**meta, "publish_at": "2020-01-01T00:00:00Z"})
+    asyncio.run(test())

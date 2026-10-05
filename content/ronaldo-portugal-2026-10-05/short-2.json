@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "title": "Should Ronaldo Start Every Game?",
+    "description": "Original football analysis with tactical illustrations and synthetic English narration. Facts checked October 5, 2026; future developments may change the news. No match footage or simulated results are presented as evidence.\n\nSources:\nhttps://efe.com/deportes/2026-09-30/cristiano-ronaldo-federacion-concentracion-seleccion/\nhttps://madeira.rtp.pt/desporto/jesus-fala-em-mal-entendido-e-diz-que-ronaldo-tem-as-portas-abertas/",
+    "hashtags": [
+      "#Ronaldo",
+      "#Portugal",
+      "#Football"
+    ]
+  },
+  "vertical": true,
+  "voice": "en-US-GuyNeural",
+  "checked_on": "2026-10-05",
+  "sources": [
+    "https://efe.com/deportes/2026-09-30/cristiano-ronaldo-federacion-concentracion-seleccion/",
+    "https://madeira.rtp.pt/desporto/jesus-fala-em-mal-entendido-e-diz-que-ronaldo-tem-as-portas-abertas/"
+  ],
+  "scenes": [
+    {
+      "heading": "Should Ronaldo Start Every Game?",
+      "mode": "decision",
+      "points": [
+        "Name the opponent",
+        "Then choose the role"
+      ],
+      "narration": "Should Ronaldo start every Portugal game? I'd ask a different question: what does this opponent force Portugal to do? You might want a striker attacking crosses and owning the penalty area. In another match, you might need different movement or pressing. Saying start him or bench him skips the actual football. In the full video, I compare both setups. Tap the related video below my channel name and see which one you'd choose."
+    }
+  ]
+}

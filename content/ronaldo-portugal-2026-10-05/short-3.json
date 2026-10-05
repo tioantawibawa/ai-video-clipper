@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "title": "One Striker Run Changes the Whole Attack",
+    "description": "Original football analysis with tactical illustrations and synthetic English narration. Facts checked October 5, 2026; future developments may change the news. No match footage or simulated results are presented as evidence.\n\nSources:\nhttps://efe.com/deportes/2026-09-30/cristiano-ronaldo-federacion-concentracion-seleccion/\nhttps://madeira.rtp.pt/desporto/jesus-fala-em-mal-entendido-e-diz-que-ronaldo-tem-as-portas-abertas/",
+    "hashtags": [
+      "#Ronaldo",
+      "#Portugal",
+      "#Football"
+    ]
+  },
+  "vertical": true,
+  "voice": "en-US-GuyNeural",
+  "checked_on": "2026-10-05",
+  "sources": [
+    "https://efe.com/deportes/2026-09-30/cristiano-ronaldo-federacion-concentracion-seleccion/",
+    "https://madeira.rtp.pt/desporto/jesus-fala-em-mal-entendido-e-diz-que-ronaldo-tem-as-portas-abertas/"
+  ],
+  "scenes": [
+    {
+      "heading": "One Striker Run Changes the Whole Attack",
+      "mode": "space",
+      "points": [
+        "Striker drops deeper",
+        "Who attacks the empty space?"
+      ],
+      "narration": "Watch what happens when the striker drops toward the ball. The winger gains a passing option, but someone else has to attack the penalty area. More movement isn't automatically better. It changes everybody else's job. This is a tactical illustration, not match footage or a gameplay test. In the full video, I compare the spaces a central striker and a roaming forward create. Tap the related video below my channel name for the full breakdown."
+    }
+  ]
+}

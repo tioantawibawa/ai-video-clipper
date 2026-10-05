@@ -6,6 +6,7 @@ operator reconciliation. YouTube supports account-specific OAuth refresh credent
 import asyncio
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -80,11 +81,19 @@ class Publisher:
     async def youtube(self, client, clip, meta):
         if self.account.privacy not in {"private", "unlisted", "public"}:
             raise ValueError("Invalid YouTube privacy")
+        status = {"privacyStatus": self.account.privacy}
+        if meta.get("publish_at"):
+            publish_at = datetime.fromisoformat(meta["publish_at"].replace("Z", "+00:00"))
+            if publish_at.tzinfo is None or publish_at <= datetime.now(timezone.utc):
+                raise ValueError("YouTube publish_at must be timezone-aware and in the future")
+            # YouTube's scheduled release requires a never-published private video.
+            status = {"privacyStatus": "private", "publishAt": publish_at.isoformat(),
+                      "selfDeclaredMadeForKids": False}
         response = await client.post("https://www.googleapis.com/upload/youtube/v3/videos",
             params={"uploadType": "resumable", "part": "snippet,status"},
             headers={"X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": str(clip.stat().st_size)},
             json={"snippet": {"title": meta["title"], "description": meta["description"] + "\n" + " ".join(meta["hashtags"]),
-                               "categoryId": "22"}, "status": {"privacyStatus": self.account.privacy}})
+                               "categoryId": "22"}, "status": status})
         response.raise_for_status()
         url = upload_url(response.headers["Location"], "googleapis.com")
         uploaded = checked(await client.put(url, headers={"Content-Type": "video/mp4",
