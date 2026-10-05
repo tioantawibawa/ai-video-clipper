@@ -1,0 +1,12 @@
+[Unit]
+Description=Research YouTube trends at noon and evening WIB
+
+[Timer]
+OnCalendar=*-*-* 12:00:00 Asia/Jakarta
+OnCalendar=*-*-* 18:00:00 Asia/Jakarta
+RandomizedDelaySec=5min
+Persistent=true
+Unit=clipper-research.service
+
+[Install]
+WantedBy=timers.target

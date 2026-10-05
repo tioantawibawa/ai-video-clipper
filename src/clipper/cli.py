@@ -97,3 +97,7 @@ def doctor():
 from .content_manager import register_cli  # noqa: E402
 
 register_cli(app, pipeline, execute)
+
+from .trend_research import register_research_cli  # noqa: E402
+
+register_research_cli(app, pipeline, execute)

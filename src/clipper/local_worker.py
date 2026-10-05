@@ -1,10 +1,12 @@
 """Watch authorized local media requests, render locally, and deliver to a VPS outbox."""
 import argparse
 import asyncio
+from datetime import date
 import hashlib
 import json
 import shlex
 import sys
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -26,6 +28,7 @@ class WorkerConfig(BaseModel):
     host: str = Field(pattern=r"^[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+$")
     remote_outbox: str = Field(pattern=r"^/[a-zA-Z0-9_/-]+$")
     poll_seconds: int = Field(60, ge=30)
+    research_output: Path | None = None
 
 
 class EditRequest(BaseModel):
@@ -72,6 +75,18 @@ async def sync_env(cfg):
     cfg.env_file.write_text("\n".join(k+"="+json.dumps(v) for k, v in values.items())+"\n", encoding="utf-8")
     cfg.env_file.chmod(0o600)
     logger.info("Local LLM configuration synchronized; OAuth/account credentials were excluded")
+
+
+async def sync_research(cfg):
+    if cfg.research_output is None:
+        return
+    from .trend_research import TrendResearch
+    report = json.loads(await run("ssh", *ssh_options(cfg), cfg.host,
+        "cat /home/ubuntu/ai-video-clipper/data/vps/research/latest.json", timeout=60))
+    date.fromisoformat(report.get("target_date", ""))
+    cfg.research_output.mkdir(parents=True, exist_ok=True)
+    local.write_json(cfg.research_output / "latest.json", report)
+    TrendResearch.write_report(cfg.research_output / "latest.md", report)
 
 
 async def deliver(cfg, clip, manifest):
@@ -142,7 +157,14 @@ async def watch(cfg, once=False):
     load_dotenv(cfg.env_file)
     cfg.output.mkdir(parents=True, exist_ok=True)
     with worker_lock(cfg.output):
+        next_research = 0
         while True:
+            if cfg.research_output and time.monotonic() >= next_research:
+                try:
+                    await sync_research(cfg)
+                except Exception as exc:
+                    logger.warning("Research report sync unavailable ({})", type(exc).__name__)
+                next_research = time.monotonic()+1800
             await tick(cfg)
             if once:
                 return
