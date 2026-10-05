@@ -30,10 +30,12 @@ async def schedule(clip, manifest, account_file, queue_file, account_id, thumbna
                               (account.id, str(clip.resolve()))).fetchone()
         if existing:
             print(json.dumps({"id": existing["id"], "state": existing["state"], "remote_id": existing["remote_id"],
-                              "due": existing["due"], "existing": True}))
+                              "scheduled_at": datetime.fromtimestamp(existing["due"], timezone.utc).isoformat(),
+                              "existing": True, "thumbnail_uploaded": payload.get("thumbnail_uploaded", False)}))
             return
         now = datetime.now(timezone.utc).timestamp()
-        due = queue._reserve(db, account, now)
+        # Leave time for processing and Studio checks before public release.
+        due = queue._reserve(db, account, now + 900)
         if due < now+900:
             raise ValueError("Reservation too close; reconcile quota before uploading")
         meta["publish_at"] = datetime.fromtimestamp(due, timezone.utc).isoformat()
@@ -51,10 +53,16 @@ async def schedule(clip, manifest, account_file, queue_file, account_id, thumbna
     manifest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     async with publisher.client() as client:
         await publisher.authenticate(client)
-        response = await client.get("https://www.googleapis.com/youtube/v3/videos",
-                                    params={"part": "status", "id": remote_id})
-        response.raise_for_status()
-        items = response.json().get("items", [])
+        # The read-only list endpoint can lag a successful resumable upload.
+        for attempt in range(6):
+            response = await client.get("https://www.googleapis.com/youtube/v3/videos",
+                                        params={"part": "status", "id": remote_id})
+            response.raise_for_status()
+            items = response.json().get("items", [])
+            if items and items[0]["status"].get("publishAt"):
+                break
+            if attempt < 5:
+                await asyncio.sleep(3)
         if not items or items[0]["status"].get("privacyStatus") != "private":
             raise RuntimeError("Scheduled upload exists but private status requires reconciliation")
         returned = items[0]["status"].get("publishAt")
