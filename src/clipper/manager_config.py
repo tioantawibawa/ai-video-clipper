@@ -19,6 +19,7 @@ class ApprovedSource(BaseModel):
 
 class ManagerConfig(BaseModel):
     account: str = "podcast-us-youtube"
+    research_scope: Literal["topics", "all"] = "topics"
     topics: list[str] = Field(default_factory=lambda: ["Cristiano Ronaldo", "Manchester United"], min_length=1, max_length=5)
     region: str = Field("US", pattern="^[A-Z]{2}$")
     language: str = "en"

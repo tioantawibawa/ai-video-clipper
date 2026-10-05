@@ -34,7 +34,7 @@ def rank_sources(items, config, previous, since, chart_ids, own_channel):
     for item in items:
         snippet, status = item.get("snippet", {}), item.get("status", {})
         duration = duration_seconds(item.get("contentDetails", {}).get("duration", ""))
-        if (not relevant(snippet.get("title", ""), config.topics) or not 180 <= duration <= 7200
+        if ((config.research_scope == "topics" and not relevant(snippet.get("title", ""), config.topics)) or not 180 <= duration <= 7200
                 or snippet.get("channelId") == own_channel or status.get("privacyStatus") != "public"
                 or snippet.get("liveBroadcastContent", "none") != "none"):
             continue
@@ -59,7 +59,8 @@ def rank_sources(items, config, previous, since, chart_ids, own_channel):
         row.update(channel=snippet.get("channelTitle", ""), duration_seconds=duration,
             language=language or "unconfirmed", license=status.get("license", "unknown"),
             rights_status="cc_label_verify_attribution" if status.get("license") == "creativeCommon" else "permission_required",
-            in_us_sports_chart=item["id"] in chart_ids, checks=flags,
+            category_id=snippet.get("categoryId", "unknown"),
+            in_us_chart=item["id"] in chart_ids, checks=flags,
             signal="observed_view_growth" if row["observed_views_per_hour"] is not None else "lifetime_rate_estimate")
         row["ranking_rate"] = row["observed_views_per_hour"] if row["observed_views_per_hour"] is not None else row["lifetime_views_per_hour"]
         rows.append(row)
@@ -79,17 +80,26 @@ class TrendResearch:
         async with self.api.publisher.client() as client:
             await self.api.publisher.authenticate(client)
             own_channel = (await self.api.channel(client))["id"]
-            try:
-                chart = await self.api.get(client, "videos", part="snippet", chart="mostPopular",
-                    regionCode=self.config.region, videoCategoryId="17", maxResults=50)
-                chart_ids = {x["id"] for x in chart.get("items", []) if relevant(x["snippet"]["title"], self.config.topics)}
-                ids.update(chart_ids)
-            except Exception as exc:
-                errors.append({"component": "sports_chart", "error": type(exc).__name__})
+            broad = self.config.research_scope == "all"
+            seeds = []
+            # General chart includes every category; extra charts improve coverage.
+            for category in (["0", "17", "20", "22", "24", "25", "28"] if broad else ["17"]):
+                try:
+                    chart = await self.api.get(client, "videos", part="snippet", chart="mostPopular",
+                        regionCode=self.config.region, videoCategoryId=category, maxResults=50)
+                    found = chart.get("items", [])
+                    chart_ids.update(x["id"] for x in found if broad or relevant(x["snippet"]["title"], self.config.topics))
+                    if broad and found:
+                        seeds.append(found[0]["snippet"]["title"][:160])
+                except Exception as exc:
+                    errors.append({"component": "popular_chart", "category": category, "error": type(exc).__name__})
+            ids.update(chart_ids)
             cutoff = (datetime.now(timezone.utc)-timedelta(days=self.config.lookback_days)).isoformat()
-            for topic in self.config.topics:
-                for order, license_filter in [("date", None), ("viewCount", None), ("viewCount", "creativeCommon")]:
-                    params = dict(part="snippet", type="video", q=topic+" interview podcast", order=order,
+            queries = list(dict.fromkeys(seeds))[:6]+["podcast interview"] if broad else [t+" interview podcast" for t in self.config.topics]
+            for topic in queries:
+                modes = [("viewCount", None), ("viewCount", "creativeCommon")] if broad else [("date", None), ("viewCount", None), ("viewCount", "creativeCommon")]
+                for order, license_filter in modes:
+                    params = dict(part="snippet", type="video", q=topic, order=order,
                         regionCode=self.config.region, relevanceLanguage=self.config.language,
                         publishedAfter=cutoff, maxResults=15)
                     if license_filter:
@@ -114,10 +124,11 @@ class TrendResearch:
             self.store.snapshot("source_metrics", rows)
             tomorrow = str(datetime.now(ZoneInfo("Asia/Jakarta")).date()+timedelta(days=1))
             report = {"generated_at": datetime.now(timezone.utc).isoformat(), "target_date": tomorrow,
-                "target_timezone": "Asia/Jakarta", "topics": self.config.topics, "region": self.config.region,
+                "target_timezone": "Asia/Jakarta", "scope": self.config.research_scope,
+                "topics": [] if self.config.research_scope == "all" else self.config.topics, "region": self.config.region,
                 "candidates_checked": len(items), "qualified_sources": len(rows),
                 "recommendations": rows[:5], "cc_options": [r for r in rows if r["license"] == "creativeCommon"][:3],
-                "note": "Sampled niche research, not a global trending ranking. US availability does not prove US audience. First sample uses lifetime views/hour; later samples can measure view growth. Recommendations do not authorize downloads or publication.",
+                "note": "Sampled research across categories when scope=all; not an exhaustive global trending ranking. US availability does not prove US audience. First sample uses lifetime views/hour; later samples can measure view growth. Recommendations do not authorize downloads or publication.",
                 "errors": errors}
             save_json(self.root / "latest.json", report)
             save_json(self.root / (tomorrow+".json"), report)

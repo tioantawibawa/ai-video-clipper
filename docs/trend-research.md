@@ -1,7 +1,9 @@
 # YouTube research agent
 
-The `research` agent produces tomorrow's clipping shortlist using the configured
-Ronaldo/Manchester United topics. It runs on the VPS at 12:00 and 18:00 WIB with
+The `research` agent produces tomorrow's clipping shortlist across viral topics when
+`research_scope` is `"all"`. The legacy `"topics"` mode restricts discovery to
+configured topics; the live research setup uses `"all"`. This scope affects the
+research shortlist only, not the separate editorial planner or ads drafts. It runs on the VPS at 12:00 and 18:00 WIB with
 up to five minutes jitter. Tomorrow is calculated in Asia/Jakarta; publication
 quota remains in America/New_York.
 
@@ -11,16 +13,20 @@ CLIPPER_SOURCES_FILE=data/vps/sources.json \
 .venv/bin/python -m clipper research --config data/vps/manager.json
 ```
 
-Each run uses the official US sports `mostPopular` chart plus recent topic
-searches (date, views and Creative Commons), then rechecks video details. Searches
-use up to six requests for the default two topics. It excludes owned uploads,
+Broad mode uses the official general US `mostPopular` chart plus sports, gaming,
+people, entertainment, news and science charts. It searches up to six current
+chart-title seeds and one podcast/interview query, including CC results, then
+rechecks video details. General-chart discovery has no category restriction.
+The bounded sample can miss emerging topics. Broad mode uses at most 14 search
+requests (normally 1,400 search quota units) per run; chart failures are reported.
+Topic mode retains the existing date/views/CC searches. It excludes owned uploads,
 live streams, non-public content, videos outside the configured lookback,
 sources under three minutes/over two hours, and explicitly non-English metadata.
 Unknown audio language is marked for checking, not silently confirmed English.
 
 Results include five recommendations and up to three alternatives labelled CC,
 source links, channels, durations, views, measured/estimated views per hour,
-license status and editorial checks. This is sampled niche research; the chart
+license status and editorial checks. This is sampled research across topics; the chart
 is not a complete global trending list or proof of a US-only audience. On the
 first run, lifetime views/hour estimates activity, not acceleration. Later
 snapshots can calculate observed view growth. Event dates, statements and clip

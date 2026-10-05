@@ -33,7 +33,7 @@ def test_measured_growth_is_distinguished_from_first_sample():
     assert rows[0]["id"] == "fast"
     assert rows[0]["observed_views_per_hour"] > 999
     assert rows[0]["signal"] == "observed_view_growth"
-    assert rows[0]["in_us_sports_chart"]
+    assert rows[0]["in_us_chart"]
     assert rows[0]["rights_status"] == "cc_label_verify_attribution"
 
 
@@ -44,3 +44,12 @@ def test_unknown_language_requires_check_and_missing_views_excluded():
     rows = rank_sources([unknown, missing], ManagerConfig(), None, None, set(), "mine")
     assert len(rows) == 1 and rows[0]["language"] == "unconfirmed"
     assert any("language" in check for check in rows[0]["checks"])
+
+
+def test_all_scope_accepts_unrelated_viral_topics_but_retains_source_filters():
+    technology, short = item("technology"), item("short", duration="PT50S")
+    technology["snippet"]["title"] = "New AI breakthrough interview"
+    assert not rank_sources([technology], ManagerConfig(), None, None, set(), "mine")
+    rows = rank_sources([technology, short], ManagerConfig(research_scope="all"), None, None, {"technology"}, "mine")
+    assert [r["id"] for r in rows] == ["technology"]
+    assert rows[0]["in_us_chart"]
