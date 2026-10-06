@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "title": "Ronaldo Is Back at Al Nassr. What About Portugal?",
+    "description": "Cristiano Ronaldo is back at work with Al Nassr, according to RTP's October 6, 2026 report. That is a club update; it does not confirm a Portugal comeback. Jorge Jesus has left the door open to a possible return.\n\nOriginal news explainer with synthetic English narration and original graphics; no match or training footage.\nSources:\nhttps://www.rtp.pt/noticias/desporto/polemica-na-selecao-piers-morgan-ataca-jorge-jesus_v1769827\nhttps://www.rtp.pt/noticias/desporto/cupula-da-fpf-mantem-por-aberta-a-cristiano-ronaldo_v1769721\nChecked October 6, 2026.",
+    "hashtags": ["#CristianoRonaldo", "#AlNassr", "#Portugal", "#Shorts"]
+  },
+  "vertical": true,
+  "voice": "en-US-GuyNeural",
+  "checked_on": "2026-10-06",
+  "sources": [
+    "https://www.rtp.pt/noticias/desporto/polemica-na-selecao-piers-morgan-ataca-jorge-jesus_v1769827",
+    "https://www.rtp.pt/noticias/desporto/cupula-da-fpf-mantem-por-aberta-a-cristiano-ronaldo_v1769721"
+  ],
+  "scenes": [
+    {
+      "heading": "Ronaldo is back. But where?",
+      "mode": "news",
+      "points": ["Back at Al Nassr", "Club return confirmed by RTP"],
+      "narration": "Ronaldo is back at Al Nassr. But that does not settle his Portugal future. RTP reported on October sixth that he has returned to work with his club. That is the update. A club return and an international comeback are two different things."
+    },
+    {
+      "heading": "Portugal: the door is open",
+      "mode": "news",
+      "points": ["Possible return, not confirmed", "Starter or substitute?"],
+      "narration": "Jorge Jesus has left the door open for Ronaldo to return to Portugal. An open door is not a confirmed call-up. Watch for an official squad announcement or Ronaldo's own response. If he comes back, would you start him or bring him off the bench? Give me your football reason."
+    }
+  ]
+}

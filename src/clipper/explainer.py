@@ -19,7 +19,7 @@ class Scene(BaseModel):
     heading: str = Field(min_length=1, max_length=65)
     points: list[str] = Field(min_length=1, max_length=5)
     narration: str = Field(min_length=20)
-    mode: str = Field(default="box", pattern="^(box|press|space|timeline|decision)$")
+    mode: str = Field(default="box", pattern="^(box|press|space|timeline|decision|news)$")
 
 
 class Episode(BaseModel):
@@ -84,6 +84,23 @@ def card(scene, path, vertical, phase, checked_on):
     heading = textwrap.wrap(scene.heading.upper(), 25 if vertical else 48)
     for n, line in enumerate(heading):
         d.text((65, 105+n*65), line, font=font(53, True), fill="white")
+    if scene.mode == "news":
+        # Original news graphics: no archival photo presented as today's footage.
+        sx = w//2
+        top = 380 if vertical else 270
+        scale = 1.5 if vertical else 1.0
+        jersey = [(-150,0),(-70,35),(70,35),(150,0),(270,95),(215,200),(140,150),
+                  (140,440),(-140,440),(-140,150),(-215,200),(-270,95)]
+        d.polygon([(sx+x*scale,top+y*scale) for x,y in jersey],fill="#df3446")
+        d.text((sx-90*scale,top+140*scale),"7",font=font(round(250*scale),True),fill="white")
+        y = 1140 if vertical else 755
+        point = scene.points[phase % len(scene.points)]
+        for n,line in enumerate(textwrap.wrap(point,32 if vertical else 60)):
+            box = d.textbbox((0,0),line,font=font(42,True))
+            d.text(((w-(box[2]-box[0]))/2,y+n*58),line,font=font(42,True),fill="#f4c64b")
+        d.text((65,h-70),f"NEWS EXPLAINER | RTP | CHECKED {checked_on}",font=font(21),fill="#9eafc1")
+        im.save(path)
+        return
     top = 330 if vertical else 255
     left, right, bottom = 65, (w-65 if vertical else 1160), (1210 if vertical else 815)
     d.rounded_rectangle((left, top, right, bottom), radius=20, fill="#123d38")
