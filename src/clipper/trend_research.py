@@ -31,23 +31,29 @@ def rank_sources(items, config, previous, since, chart_ids, own_channel):
     old = {x["id"]: x for x in previous or []}
     elapsed = time.time()-since if since else None
     rows = []
+    direct = config.source_format == 'ronaldo_speaking'
+    verified_ids = {s.video_id for s in config.speaking_sources}
     for item in items:
+        if direct and item['id'] not in verified_ids:
+            continue
         snippet, status = item.get("snippet", {}), item.get("status", {})
         duration = duration_seconds(item.get("contentDetails", {}).get("duration", ""))
-        if ((config.research_scope == "topics" and not relevant(snippet.get("title", ""), config.topics)) or not 180 <= duration <= 7200
+        if ((not direct and config.research_scope == "topics" and not relevant(snippet.get("title", ""), config.topics)) or not (60 if direct else 180) <= duration <= 7200
                 or snippet.get("channelId") == own_channel or status.get("privacyStatus") != "public"
                 or snippet.get("liveBroadcastContent", "none") != "none"):
             continue
         published = datetime.fromisoformat(snippet["publishedAt"].replace("Z", "+00:00"))
-        if published < datetime.now(timezone.utc)-timedelta(days=config.lookback_days):
+        if not direct and published < datetime.now(timezone.utc)-timedelta(days=config.lookback_days):
             continue
         language = snippet.get("defaultAudioLanguage") or snippet.get("defaultLanguage")
-        if language and not language.lower().startswith(config.language.lower()):
+        if not direct and language and not language.lower().startswith(config.language.lower()):
             continue
         row = metrics(item, old.get(item["id"]), elapsed)
         if row["views"] is None:
             continue
         flags = ["Verify event date and claims against actual footage; upload date is not event date"]
+        if direct:
+            flags.append('Verified Ronaldo speaking; archive from '+snippet['publishedAt'][:10]+'; not current news')
         if not language:
             flags.append("Audio language not confirmed by API metadata")
         if re.search(r"breaking|shock|confirmed|exclusive|\!", row["title"], re.I):
@@ -60,6 +66,8 @@ def rank_sources(items, config, previous, since, chart_ids, own_channel):
             language=language or "unconfirmed", license=status.get("license", "unknown"),
             rights_status="cc_label_verify_attribution" if status.get("license") == "creativeCommon" else "permission_required",
             category_id=snippet.get("categoryId", "unknown"),
+            source_format='ronaldo_speaking' if direct else 'unverified',
+            archival=published < datetime.now(timezone.utc)-timedelta(days=config.lookback_days),
             in_us_chart=item["id"] in chart_ids, checks=flags,
             signal="observed_view_growth" if row["observed_views_per_hour"] is not None else "lifetime_rate_estimate")
         row["ranking_rate"] = row["observed_views_per_hour"] if row["observed_views_per_hour"] is not None else row["lifetime_views_per_hour"]
@@ -80,6 +88,13 @@ class TrendResearch:
         async with self.api.publisher.client() as client:
             await self.api.publisher.authenticate(client)
             own_channel = (await self.api.channel(client))["id"]
+            if self.config.source_format == 'ronaldo_speaking':
+                ids = sorted({s.video_id for s in self.config.speaking_sources})
+                items = []
+                for offset in range(0, len(ids), 50):
+                    result = await self.api.get(client, 'videos', part='snippet,statistics,status,contentDetails', id=','.join(ids[offset:offset+50]))
+                    items.extend(result.get('items', []))
+                return items, set(), own_channel, []
             broad = self.config.research_scope == "all"
             seeds = []
             # General chart includes every category; extra charts improve coverage.
@@ -106,7 +121,7 @@ class TrendResearch:
                         params["videoLicense"] = license_filter
                     try:
                         found = await self.api.get(client, "search", **params)
-                        ids.update(x["id"]["videoId"] for x in found.get("items", []))
+                        ids.update(x['id']['videoId'] for x in found.get('items', []) if x.get('id', {}).get('videoId'))
                     except Exception as exc:
                         errors.append({"component": "source_search", "topic": topic, "error": type(exc).__name__})
             items = []
@@ -125,6 +140,7 @@ class TrendResearch:
             tomorrow = str(datetime.now(ZoneInfo("Asia/Jakarta")).date()+timedelta(days=1))
             report = {"generated_at": datetime.now(timezone.utc).isoformat(), "target_date": tomorrow,
                 "target_timezone": "Asia/Jakarta", "scope": self.config.research_scope,
+                "source_format": self.config.source_format,
                 "topics": [] if self.config.research_scope == "all" else self.config.topics, "region": self.config.region,
                 "candidates_checked": len(items), "qualified_sources": len(rows),
                 "recommendations": rows[:5], "cc_options": [r for r in rows if r["license"] == "creativeCommon"][:3],

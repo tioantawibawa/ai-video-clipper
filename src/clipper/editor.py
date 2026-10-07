@@ -53,7 +53,7 @@ def safe_text(text: str) -> str:
     return text.replace("\\", "").replace("{", "").replace("}", "").replace("\n", " ").upper()
 
 
-def subtitles(words: list[Word], path: Path, cfg: Settings):
+def subtitles(words: list[Word], path: Path, cfg: Settings, annotation=None):
     color = cfg.highlight[4:6] + cfg.highlight[2:4] + cfg.highlight[0:2]
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -67,6 +67,8 @@ Style: Default,{cfg.font},{cfg.font_size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H800
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     events = []
+    if annotation and words:
+        events.append(f"Dialogue: 1,0:00:00.00,{ass_time(max(w.end for w in words))},Default,,0,0,0,,{{\\an8\\pos({cfg.width//2},38)\\fs38}}{safe_text(annotation)}")
     for i in range(0, len(words), 4):
         phrase = words[i:i + 4]
         for j, word in enumerate(phrase):
@@ -76,7 +78,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
 
 
-async def render(media: Path, moment: Moment, words: list[Word], output: Path, cfg: Settings):
+async def render(media: Path, moment: Moment, words: list[Word], output: Path, cfg: Settings, frame_filter=None, annotation=None):
     duration = moment.end - moment.start
     log = await run("ffmpeg", "-nostdin", "-hide_banner", "-ss", str(moment.start), "-t", str(duration),
                     "-i", str(media), "-vn", "-af", "silencedetect=noise=-35dB:d=0.4", "-f", "null", "-")
@@ -84,10 +86,10 @@ async def render(media: Path, moment: Moment, words: list[Word], output: Path, c
     # Preserve requested minimum length when aggressive cuts would make it too short.
     if sum(b - a for a, b in intervals) < cfg.min_duration:
         intervals = [(0, duration)]
-    frame_filter = await asyncio.to_thread(framing, media, moment, cfg, intervals)
+    frame_filter = frame_filter or await asyncio.to_thread(framing, media, moment, cfg, intervals)
     with TemporaryDirectory(prefix="render-", dir=output.parent) as folder:
         temp = Path(folder)
-        subtitles(remap_words(words, moment.start, intervals), temp / "captions.ass", cfg)
+        subtitles(remap_words(words, moment.start, intervals), temp / "captions.ass", cfg, annotation)
         filters, inputs = [], []
         for i, (a, b) in enumerate(intervals):
             filters += [f"[0:v]trim=start={a}:end={b},setpts=PTS-STARTPTS[v{i}]",

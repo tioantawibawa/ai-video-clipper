@@ -1,9 +1,34 @@
 {
   "worker_file": "data/local-worker.json",
-  "output": "data/daily-podcasts",
-  "channels": ["UCgKUKRhh4Rha-k6HRt3mkPA"],
+  "output": "data/direct-ronaldo-daily",
+  "channels": [
+    "UCWV3obpZVGgJ3j9FVhEjF2Q"
+  ],
   "topic": "Cristiano Ronaldo",
   "prepare_time": "15:00",
   "timezone": "Asia/Jakarta",
-  "whisper_model": "small"
+  "whisper_model": "small",
+  "source_format": "ronaldo_speaking",
+  "speaking_sources": [
+    {
+      "video_id": "LBOMd0f-5Xg",
+      "start": 35.3,
+      "end": 68.7,
+      "portrait_crop": [
+        480,
+        560,
+        260,
+        0
+      ],
+      "archive_year": 2016,
+      "verified_note": "Ronaldo alone visibly speaks in original Real Madrid interview; archive 25 August 2016"
+    },
+    {
+      "video_id": "b5UqFskp4Jc",
+      "start": 51.5,
+      "end": 84.0,
+      "archive_year": 2016,
+      "verified_note": "Ronaldo himself answers the perfect night question in the official April 2016 Real Madrid interview"
+    }
+  ]
 }

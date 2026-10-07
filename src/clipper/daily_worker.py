@@ -8,6 +8,7 @@ import shlex
 import sys
 from tempfile import TemporaryDirectory
 from zoneinfo import ZoneInfo
+from typing import Literal
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -23,6 +24,7 @@ from .metadata import generate
 from .pipeline import worker_lock
 from .process import run
 from .transcriber import transcribe
+from .source_policy import SpeakingSource, speaking_words, verified_moments
 
 
 def check_host_visible(path):
@@ -55,6 +57,8 @@ class DailyConfig(BaseModel):
     prepare_time: str = Field("15:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     timezone: str = "Asia/Jakarta"
     whisper_model: str = "small"
+    source_format: Literal['ronaldo_speaking'] = "ronaldo_speaking"
+    speaking_sources: list[SpeakingSource] = Field(min_length=1)
 
 
 async def remote_sources(worker, channels, topic, ids=None):
@@ -85,7 +89,7 @@ async def main():
    for v in r.json().get('items',[]):
     s=v['snippet'];duration=v['contentDetails']['duration'];parts=re.fullmatch(r'PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?',duration)
     seconds=sum(int(x or 0)*n for x,n in zip(parts.groups(),[3600,60,1])) if parts else 0
-    if v['status'].get('license')=='creativeCommon' and s['channelId'] in args['channels'] and 90<=seconds<=1800:
+    if v['status'].get('license')=='creativeCommon' and s['channelId'] in args['channels'] and 60<=seconds<=1800:
      videos.append({'id':v['id'],'title':s['title'],'channel_id':s['channelId'],'author':s['channelTitle'],'published_at':s['publishedAt'],'license':'creativeCommon','seconds':seconds})
   print(json.dumps({'pending':pending,'videos':videos}))
 asyncio.run(main())
@@ -107,7 +111,7 @@ async def prepare(cfg, worker, today):
         attempts = previous.get("attempts", 1)
         if previous["state"] not in {"failed", "processing", "rendered"} or attempts >= 3:
             return previous
-    listing = await remote_sources(worker, cfg.channels, cfg.topic)
+    listing = await remote_sources(worker, cfg.channels, cfg.topic, [s.video_id for s in cfg.speaking_sources])
     if listing["pending"]:
         return {"state":"pending_on_vps","count":listing["pending"]}
     used = set()
@@ -119,13 +123,14 @@ async def prepare(cfg, worker, today):
     if not choices:
         raise ValueError("No new verified CC podcast source; no upload created")
     source = choices[0]
+    speaking = next(s for s in cfg.speaking_sources if s.video_id == source['id'])
     state = {"state":"processing","source_id":source["id"],"source":source,"date":today,"attempts":attempts+1}
     write_json(receipt, state)  # Interrupted production requires reconciliation, never blind retry.
     output = cfg.output / today
     output.mkdir(exist_ok=True)
     try:
         settings = Settings(whisper_model=cfg.whisper_model, transcription_task="translate",
-                            device="cpu", cpu_threads=4, max_clips=1, framing_mode="podcast_panels")
+                            device="cpu", cpu_threads=4, max_clips=1, framing_mode="speaker")
         url = "https://www.youtube.com/watch?v="+source["id"]
         with TemporaryDirectory(prefix="podcast-source-", dir=output) as tmp:
             temp = Path(tmp)
@@ -134,19 +139,19 @@ async def prepare(cfg, worker, today):
             logger.info("Transcribing original podcast locally")
             words = await transcribe(media, temp, settings)
             logger.info("Selecting a complete podcast moment")
-            moments = await curate(words, settings)
+            moments = verified_moments(await curate(speaking_words(words, speaking), settings), speaking)
             if not moments:
                 raise ValueError("No complete qualifying podcast moment")
             moment = moments[0]
             metadata = await generate(moment, words, settings)
             metadata.description = (metadata.description[:800] +
-                f"\nOriginal podcast commentary, uploaded {source['published_at'][:10]}. "
-                "Opinions and reported claims belong to the speakers; upload date does not establish event date. "
+                f"\nCristiano Ronaldo speaking in an archival interview, uploaded {source['published_at'][:10]}. "
+                "Archive footage; not a current news report. "
                 "Original audio; English translated subtitles.\n"
                 f"Source: {source['title']} by {source['author']}; {url}. "
-                "CC BY: https://creativecommons.org/licenses/by/4.0/ . "
+                f"CC BY: https://creativecommons.org/licenses/by/{'3.0' if source['published_at'][:10] < '2025-08-01' else '4.0'}/ . "
                 "Changes: excerpt, vertical framing, pause removal and subtitles.")
-            await render(media, moment, words, output / "clip.mp4", settings)
+            await render(media, moment, words, output / "clip.mp4", settings, frame_filter=speaking.frame_filter(settings), annotation=f'RONALDO - INTERVIEW {source["published_at"][:4]}')
             await asyncio.to_thread(check_host_visible,output / "clip.mp4")
             write_json(output / "transcript.json", [w.model_dump() for w in words])
         verified = await remote_sources(worker, cfg.channels, cfg.topic, [source["id"]])
@@ -154,7 +159,7 @@ async def prepare(cfg, worker, today):
             raise ValueError("Source license changed; delivery withheld")
         write_json(output / "manifest.json", {"metadata":metadata.model_dump(),"source":url,
             "source_id":source["id"],"rights":verified["videos"][0],"moment":moment.model_dump(),
-            "format":"original_podcast_clip","published":False,"file":"clip.mp4"})
+            "format":"ronaldo_speaking","speaker_verification":speaking.model_dump(),"published":False,"file":"clip.mp4"})
         state.update(state="rendered",clip=str(output / "clip.mp4"))
         write_json(receipt,state)
         state["state"]="delivering"
@@ -212,3 +217,4 @@ def main():
 
 if __name__=="__main__":
     main()
+

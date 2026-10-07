@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 from .downloader import canonical_video
+from .source_policy import SpeakingSource
 
 
 class ApprovedSource(BaseModel):
@@ -18,6 +19,8 @@ class ApprovedSource(BaseModel):
 
 
 class ManagerConfig(BaseModel):
+    source_format: Literal["any", "ronaldo_speaking"] = "any"
+    speaking_sources: list[SpeakingSource] = Field(default_factory=list)
     account: str = "podcast-us-youtube"
     research_scope: Literal["topics", "all"] = "topics"
     topics: list[str] = Field(default_factory=lambda: ["Cristiano Ronaldo", "Manchester United"], min_length=1, max_length=5)
