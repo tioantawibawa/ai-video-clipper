@@ -25,6 +25,28 @@ from .process import run
 from .transcriber import transcribe
 
 
+def check_host_visible(path):
+    """Reject a portrait crop that loses the original host's face across the clip."""
+    import cv2
+    capture=cv2.VideoCapture(str(path))
+    total=capture.get(cv2.CAP_PROP_FRAME_COUNT)
+    detector=cv2.CascadeClassifier(cv2.data.haarcascades+'haarcascade_frontalface_default.xml')
+    visible=0
+    try:
+        for fraction in (.1,.3,.5,.7,.9):
+            capture.set(cv2.CAP_PROP_POS_FRAMES,total*fraction)
+            ok,frame=capture.read()
+            if not ok:
+                continue
+            gray=cv2.cvtColor(cv2.resize(frame,(540,960)),cv2.COLOR_BGR2GRAY)
+            faces=detector.detectMultiScale(gray,scaleFactor=1.1,minNeighbors=5,minSize=(60,60))
+            visible+=int(any(w*h>=.025*540*960 for x,y,w,h in faces))
+    finally:
+        capture.release()
+    if visible<4:
+        raise ValueError('Rendered host not consistently visible; delivery withheld')
+
+
 class DailyConfig(BaseModel):
     worker_file: Path
     output: Path
@@ -125,6 +147,7 @@ async def prepare(cfg, worker, today):
                 "CC BY: https://creativecommons.org/licenses/by/4.0/ . "
                 "Changes: excerpt, vertical framing, pause removal and subtitles.")
             await render(media, moment, words, output / "clip.mp4", settings)
+            await asyncio.to_thread(check_host_visible,output / "clip.mp4")
             write_json(output / "transcript.json", [w.model_dump() for w in words])
         verified = await remote_sources(worker, cfg.channels, cfg.topic, [source["id"]])
         if not verified["videos"]:

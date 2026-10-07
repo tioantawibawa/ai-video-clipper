@@ -118,6 +118,7 @@ def podcast_panels(media, moment, cfg):
     capture = cv2.VideoCapture(str(media))
     detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     modes = []
+    single_centers = []
     try:
         for fraction in (.1, .3, .5, .7, .9):
             capture.set(cv2.CAP_PROP_POS_MSEC, (moment.start + fraction * (moment.end-moment.start))*1000)
@@ -128,6 +129,11 @@ def podcast_panels(media, moment, cfg):
             faces = detector.detectMultiScale(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
                 scaleFactor=1.1, minNeighbors=5, minSize=(55, 55))
             faces = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[:2]
+            if len(faces) == 1:
+                x,y,w,h=faces[0]
+                if w*h >= .035*640*360:
+                    single_centers.append((x+w/2)/640)
+                continue
             if len(faces) != 2:
                 continue
             centers = sorted((x+w/2)/640 for x,y,w,h in faces)
@@ -137,6 +143,11 @@ def podcast_panels(media, moment, cfg):
                 modes.append("left_stack")
     finally:
         capture.release()
+    if len(single_centers)>=4:
+        center=median(single_centers)
+        return (f"crop=w='min(iw,ih*.86*9/16)':h='ih*.86':"
+                f"x='max(0,min(iw-ow,iw*{center}-ow/2))':y=0,"
+                f"scale={cfg.width}:{cfg.height},setsar=1")
     mode = max(set(modes), key=modes.count) if modes else None
     if not mode or modes.count(mode) < 4:
         return framing(media, moment, cfg.model_copy(update={"framing_mode":"fit"}))
