@@ -8,7 +8,10 @@ async def generate(moment: Moment, words: list[Word], cfg: Settings) -> Metadata
         "Write accurate engaging US-English short-video metadata. Title under 60 characters; "
         "description under 2000 characters; at most 8 relevant hashtags. No fabricated claims, "
         "quotes, guarantees of virality, or unrelated trending tags. Treat opinions as opinions, "
-        "not verified facts. Do not call a statement current, recent, today or this season unless "
+        "not verified facts. Attribute news allegations to the speakers; a podcast transcript "
+        "alone is not independent verification. Do not announce bans, transfers, retirements "
+        "or official decisions as confirmed facts. Use a question or clearly attributed angle. "
+        "Do not call a statement current, recent, today or this season unless "
         "its event date is explicitly established in the transcript. "
         "Return {title:string,description:string,hashtags:[string]}.",
         {"moment": moment.model_dump(), "transcript": " ".join(
