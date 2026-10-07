@@ -48,7 +48,7 @@ class Queue:
     def _reserve(self, db, account: Account, now: float) -> float:
         zone = ZoneInfo(account.timezone)
         local = datetime.fromtimestamp(now, zone)
-        limit = account.daily_limit if account.warmed else 1
+        limit = 1 if account.publish_time else (account.daily_limit if account.warmed else 1)
         for day in range(3660):
             date = local.date() + timedelta(days=day)
             start = datetime.combine(date, day_time.min, zone).timestamp()
@@ -58,6 +58,12 @@ class Queue:
                                "AND state NOT IN ('rejected','failed')", (account.id, start, end)).fetchone()[0]
             count += self._observed_count(db, account.id, start, end)
             if count >= limit:
+                continue
+            if account.publish_time:
+                hour, minute = map(int, account.publish_time.split(":"))
+                slot = datetime.combine(date, day_time(hour, minute), zone).timestamp()
+                if slot > now:
+                    return slot
                 continue
             latest = db.execute("SELECT MAX(due) FROM jobs WHERE account=? "
                                 "AND state NOT IN ('rejected','failed')", (account.id,)).fetchone()[0]
@@ -108,7 +114,7 @@ class Queue:
                 end = datetime.combine(date+timedelta(days=1), day_time.min, zone).timestamp()
                 posted = db.execute("SELECT COUNT(*) FROM jobs WHERE account=? AND due>=? AND due<? AND state IN ('published','processing','uploading','uncertain')", (account.id, start, end)).fetchone()[0]
                 posted += self._observed_count(db, account.id, start, end)
-                if posted >= (account.daily_limit if account.warmed else 1):
+                if posted >= (1 if account.publish_time else (account.daily_limit if account.warmed else 1)):
                     db.execute("UPDATE jobs SET state='failed' WHERE id=?", (row['id'],))
                     due = self._reserve(db, account, now)
                     db.execute("UPDATE jobs SET state='queued',due=?,updated=? WHERE id=?", (due, now, row['id']))

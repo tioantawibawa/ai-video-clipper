@@ -1,0 +1,9 @@
+{
+  "worker_file": "data/local-worker.json",
+  "output": "data/daily-podcasts",
+  "channels": ["UCgKUKRhh4Rha-k6HRt3mkPA"],
+  "topic": "Cristiano Ronaldo",
+  "prepare_time": "15:00",
+  "timezone": "Asia/Jakarta",
+  "whisper_model": "small"
+}

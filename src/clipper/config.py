@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr = SecretStr("")
     transcription: Literal["local", "api"] = "local"
     whisper_model: str = "small.en"
+    transcription_task: Literal["transcribe", "translate"] = "transcribe"
     device: Literal["auto", "cpu", "cuda"] = "auto"
     cpu_threads: int = Field(4, ge=1, le=64)
     min_duration: float = Field(30, ge=1)
@@ -30,7 +31,7 @@ class Settings(BaseSettings):
     max_clips: int = Field(3, ge=1, le=20)
     width: int = 1080
     height: int = 1920
-    framing_mode: Literal["speaker", "fit"] = "speaker"
+    framing_mode: Literal["speaker", "fit", "podcast_panels"] = "speaker"
     font: str = Field("DejaVu Sans", pattern=r"^[\w -]+$")
     font_size: int = Field(68, ge=10, le=120)
     highlight: str = Field("FFFF00", pattern=r"^[0-9A-Fa-f]{6}$")
@@ -76,6 +77,7 @@ class Account(BaseModel):
     warmed: bool = False
     daily_limit: int = Field(3, ge=1, le=4)
     timezone: str = "America/New_York"
+    publish_time: str | None = Field(None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     privacy: str = "private"
     tiktok_mode: Literal["draft", "direct"] = "draft"
     user_id: str = ""

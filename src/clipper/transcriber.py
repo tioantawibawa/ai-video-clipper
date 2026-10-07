@@ -28,7 +28,8 @@ def local_transcribe(path: Path, cfg: Settings) -> list[Word]:
     model = WhisperModel(cfg.whisper_model, device=device,
                          compute_type="float16" if device == "cuda" else "int8",
                          cpu_threads=cfg.cpu_threads)
-    segments, _ = model.transcribe(str(path), word_timestamps=True, vad_filter=True)
+    segments, _ = model.transcribe(str(path), task=cfg.transcription_task,
+                                  word_timestamps=True, vad_filter=True)
     return [Word(start=w.start, end=w.end, text=w.word.strip())
             for s in segments for w in (s.words or []) if w.end > w.start and w.word.strip()]
 

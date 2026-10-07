@@ -35,6 +35,8 @@ def framing(media: Path, moment: Moment, cfg: Settings, intervals=None) -> str:
     dubbing and camera cuts still require review. Two simultaneously moving mouths
     get stacked panels when consistently observed; low confidence uses center crop.
     """
+    if cfg.framing_mode == "podcast_panels":
+        return podcast_panels(media, moment, cfg)
     if cfg.framing_mode == "fit":
         # Keep gameplay, slides and screen recordings readable without cropping.
         return (f"split=2[fitbg][fitfg];[fitbg]scale={cfg.width}:{cfg.height}:"
@@ -104,3 +106,43 @@ def framing(media: Path, moment: Moment, cfg: Settings, intervals=None) -> str:
     return (f"crop=w='min(iw,ih*9/16)':h='min(ih,iw*16/9)':"
             f"x='max(0,min(iw-ow,iw*({expression})-ow/2))':y='(ih-oh)/2',"
             f"scale={cfg.width}:{cfg.height},setsar=1")
+
+
+def podcast_panels(media, moment, cfg):
+    """Jorge Ramos panel layout: validate two large host faces, ignore background faces.
+
+    Preserve the entire original image when layout changes or recognition is weak.
+    These normalized rectangles are specific to the configured publisher template.
+    """
+    import cv2
+    capture = cv2.VideoCapture(str(media))
+    detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    modes = []
+    try:
+        for fraction in (.1, .3, .5, .7, .9):
+            capture.set(cv2.CAP_PROP_POS_MSEC, (moment.start + fraction * (moment.end-moment.start))*1000)
+            ok, image = capture.read()
+            if not ok:
+                continue
+            image = cv2.resize(image, (640, 360))
+            faces = detector.detectMultiScale(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
+                scaleFactor=1.1, minNeighbors=5, minSize=(55, 55))
+            faces = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[:2]
+            if len(faces) != 2:
+                continue
+            centers = sorted((x+w/2)/640 for x,y,w,h in faces)
+            if centers[0] < .4 and centers[1] > .6:
+                modes.append("columns")
+            elif centers[1] < .4:
+                modes.append("left_stack")
+    finally:
+        capture.release()
+    mode = max(set(modes), key=modes.count) if modes else None
+    if not mode or modes.count(mode) < 4:
+        return framing(media, moment, cfg.model_copy(update={"framing_mode":"fit"}))
+    boxes = ((.012,.05,.477,.60),(.516,.05,.477,.60)) if mode == "columns" else (
+             (.035,.028,.305,.382),(.021,.448,.305,.365))
+    def panel(box):
+        x,y,w,h=box
+        return f"crop=iw*{w}:ih*{h}:iw*{x}:ih*{y},scale={cfg.width}:{cfg.height//2},setsar=1"
+    return f"split=2[p][q];[p]{panel(boxes[0])}[l];[q]{panel(boxes[1])}[r];[l][r]vstack"
