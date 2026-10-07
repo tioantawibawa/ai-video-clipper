@@ -42,6 +42,14 @@ class YouTubeInsights:
 
     async def trends(self, config, previous, since):
         ids = set()
+        if config.source_format == 'ronaldo_speaking':
+            async with self.publisher.client() as client:
+                await self.publisher.authenticate(client)
+                items = await self.video_items(client, [s.video_id for s in config.speaking_sources])
+            old = {x['id']: x for x in previous or []}
+            elapsed = time.time()-since if since else None
+            rows = [dict(metrics(x, old.get(x['id']), elapsed), source_format='ronaldo_speaking', archival=True) for x in items if x.get('status', {}).get('privacyStatus') == 'public']
+            return sorted(rows, key=lambda x: x['observed_views_per_hour'] if x['observed_views_per_hour'] is not None else (x['lifetime_views_per_hour'] or 0), reverse=True)
         async with self.publisher.client() as client:
             await self.publisher.authenticate(client)
             cutoff = (datetime.now(timezone.utc)-timedelta(days=config.lookback_days)).isoformat()
@@ -93,6 +101,9 @@ class YouTubeInsights:
         """Search medium-length CC-labelled videos; recheck returned license metadata."""
         from .manager_config import ApprovedSource
         result = []
+        if config.source_format == 'ronaldo_speaking':
+            # Only the local worker may edit the verified answer intervals.
+            return result
         async with self.publisher.client() as client:
             await self.publisher.authenticate(client)
             channel = await self.channel(client)

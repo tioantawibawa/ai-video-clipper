@@ -111,6 +111,8 @@ class ContentManager:
         self.zone = ZoneInfo(account.timezone)
 
     async def plan(self, trends, evaluation, retention):
+        if self.config.source_format == 'ronaldo_speaking':
+            trends = [t for t in trends if t.get('source_format') == 'ronaldo_speaking']
         evidence = trends[:30]
         instruction = """You are an editorial planner for an independent football fan channel targeting US English viewers.
 Return JSON {briefs:[{evidence_video_id,title,hook,angle}],evaluation:string}.
@@ -122,6 +124,8 @@ Recommend experiments from measured engagement; no CTR/retention claims if missi
 Each brief is an idea for review, not approval to download or republish the evidence video.
 Return EXACTLY the requested number of days as separate entries in briefs, not only in the evaluation text."""
         instruction += " Research only has video metadata, not footage or transcripts. Use question-form hooks, without years or factual event assertions. An upload date is not the date a match/interview happened. Never infer footage contents, current club membership or allegations from a title. Angles are proposed investigations requiring verification."
+        if self.config.source_format == 'ronaldo_speaking':
+            instruction += ' Every brief must be an excerpt of Ronaldo himself speaking in the supplied verified interview. Exclude pundit discussion, reactions, synthetic narration and graphics videos. These catalog sources are archives, not current news.'
         if not evidence:
             return {"briefs": [], "evaluation": "No verified research data available; no evidence-based plan generated."}
         try:

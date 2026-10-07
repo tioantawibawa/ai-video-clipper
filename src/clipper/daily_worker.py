@@ -143,7 +143,12 @@ async def prepare(cfg, worker, today):
             if not moments:
                 raise ValueError("No complete qualifying podcast moment")
             moment = moments[0]
+            moment.title = 'Cristiano Ronaldo interview: ' + moment.title
             metadata = await generate(moment, words, settings)
+            if 'ronaldo' not in metadata.title.lower():
+                metadata.title = 'Ronaldo: ' + metadata.title
+            metadata.title = metadata.title[:51] + f" ({source['published_at'][:4]})"
+            metadata.hashtags = list(dict.fromkeys(['#CristianoRonaldo', '#Shorts'] + metadata.hashtags))[:8]
             metadata.description = (metadata.description[:800] +
                 f"\nCristiano Ronaldo speaking in an archival interview, uploaded {source['published_at'][:10]}. "
                 "Archive footage; not a current news report. "
