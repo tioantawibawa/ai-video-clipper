@@ -1,5 +1,10 @@
 # AI Video Clipper & Publisher Agent
 
+Current workflow: **run entirely on the Windows laptop**, including direct private
+YouTube upload. See [desktop setup and commands](deploy/DESKTOP.md). The former
+Ubuntu/VPS deployment below is retained as an optional deployment reference;
+do not start both publishers against the same channel.
+
 Project website: https://tioantawibawa.github.io/ai-video-clipper/
 
 The static website lives in `docs/` and includes `privacy.html`, `terms.html`,

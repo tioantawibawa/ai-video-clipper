@@ -2,6 +2,7 @@ import asyncio
 import json
 import shutil
 import sys
+from pathlib import Path
 
 import typer
 from dotenv import load_dotenv
@@ -11,12 +12,18 @@ from .config import Settings
 from .pipeline import Pipeline, worker_lock
 from .scheduler import utc_label
 
-app = typer.Typer(no_args_is_help=True, help="Headless podcast clipping and reviewed publishing")
+app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False,
+                  help="Headless podcast clipping and reviewed publishing")
 
 
 def pipeline():
     load_dotenv()
-    cfg = Settings()
+    desktop_config = Path("data/desktop/config.json")
+    if desktop_config.exists():
+        from .desktop import read_config
+        cfg = read_config(desktop_config).settings()
+    else:
+        cfg = Settings()
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
     logger.remove()
     logger.add(sys.stderr, level="INFO", backtrace=False, diagnose=False)

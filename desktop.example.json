@@ -1,0 +1,8 @@
+{
+  "env_file": "credentials/desktop/youtube.env",
+  "llm_env_file": "credentials/local-worker.env",
+  "data_dir": "data/desktop",
+  "accounts_file": "data/desktop/accounts.json",
+  "sources_file": "data/desktop/sources.json",
+  "expected_channel": ""
+}
