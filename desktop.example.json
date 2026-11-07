@@ -4,5 +4,9 @@
   "data_dir": "data/desktop",
   "accounts_file": "data/desktop/accounts.json",
   "sources_file": "data/desktop/sources.json",
-  "expected_channel": ""
+  "expected_channel": "",
+  "upload_backend": "native",
+  "autopilot_root": "D:\\youtube short",
+  "auto_upload_candidates": false,
+  "uploads_enabled": true
 }

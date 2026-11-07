@@ -46,14 +46,31 @@ def execute(coroutine):
 def process(url: str, account: list[str] = typer.Option([], "--account")):
     """Stage clips from one URL; optionally queue to named accounts."""
     agent = pipeline()
+    desktop_path = Path("data/desktop/config.json")
+    desktop_cfg = None
+    if desktop_path.exists():
+        from .desktop import read_config
+        desktop_cfg = read_config(desktop_path)
+    automatic = desktop_cfg and desktop_cfg.upload_backend == "autopilot" and desktop_cfg.auto_upload_candidates
     with worker_lock(agent.root):
-        manifest = execute(agent.process(url, account))
+        manifest = execute(agent.process(url, [] if automatic else account))
+    if automatic:
+        from .autopilot_uploader import submit_bundle
+        submit_bundle(desktop_cfg, manifest)
     typer.echo(str(manifest))
 
 
 @app.command()
 def daemon():
     """Monitor sources, process episodes, and service the publish queue."""
+    desktop_path = Path("data/desktop/config.json")
+    if desktop_path.exists():
+        from .desktop import read_config
+        cfg = read_config(desktop_path)
+        if cfg.upload_backend == "autopilot":
+            from .autopilot_uploader import watch
+            execute(watch(cfg))
+            return
     agent = pipeline()
     with worker_lock(agent.root):
         execute(agent.daemon())

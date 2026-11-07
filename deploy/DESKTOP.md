@@ -3,8 +3,49 @@
 The desktop workflow downloads, transcribes, selects moments, renders and uploads
 directly from Windows. It does not use SSH, SCP, a VPS, or a remote queue.
 Research recommendations remain in the daily 12:00 WIB conversation automation.
-Recommendations do not authorize an upload. Private uploads require an explicit
-`upload` command. No hidden startup task uploads a backlog.
+Research links remain recommendations. Finished candidates explicitly submitted
+to the local queue are automatically uploaded Private. Historical staging folders
+are never scanned or replayed.
+
+## Reuse the existing D: uploader
+
+Set `upload_backend` to `autopilot`, `autopilot_root` to `D:\\youtube short`, and
+`auto_upload_candidates` to `true` in `data/desktop/config.json`. The bridge runs
+that project's `venv/Scripts/python.exe`, imports `scripts/step4_uploader.py`, and
+calls its actual `upload_short` with `privacy_status="private"`. OAuth stays in
+the existing `config/token.json`; credentials are not copied into this repository.
+No synthetic video, voiceover, research or Telegram pipeline from D: is executed.
+
+```powershell
+.\scripts\desktop.ps1 doctor --live
+.\scripts\desktop.ps1 submit 'data\my-clip\clip.mp4' 'data\my-clip\manifest.json'
+.\scripts\desktop.ps1 watch --once
+.\scripts\install-candidate-uploader.ps1
+```
+
+The Windows task `Clipper Candidate Private Uploader` starts at login and at 12:00,
+checks ready tickets every minute, and ignores duplicate starts. Logs are stored
+in `data/desktop/candidate-worker.log`. The laptop must be logged in, awake and
+online. Stop it with `Stop-ScheduledTask -TaskName 'Clipper Candidate Private Uploader'`.
+It does not change the separate D: project's schedules. Both desktop and standard
+CLI `process` submit newly rendered candidates when automatic mode is enabled.
+Custom/manual edits must use `submit` after checking the final file and captions.
+Set `uploads_enabled` to `false` and install with `-Paused` to hold all uploads
+when reconciling a channel mismatch. Confirm the intended channel, update
+`expected_channel`, enable uploads, and rerun the installer to resume.
+
+The content hash and SQLite reservation prevent duplicate uploads. A known video
+ID is saved before status checks and dashboard registration. An interrupted
+upload without an ID is held for manual reconciliation, never retried automatically.
+Failed tickets remain `needs_attention`; inspect the ledger and Studio before
+changing their state. Successful uploads are also registered best-effort in the
+existing D: DuckDB dashboard; dashboard failure never triggers another upload.
+
+An upload-only OAuth token may not permit reading channel/video status. In that
+case the returned insert response verifies channel and Private privacy, while
+processing is explicitly recorded as `unverified`. Do not report it as processed.
+Reauthorize through the original project's helper if refresh authorization expires.
+The native OAuth instructions below apply only to the `native` backend.
 
 ## Configuration
 
@@ -56,15 +97,16 @@ days; follow Google's production/verification requirements for your application.
 .\scripts\desktop.ps1 queue
 ```
 
-`process` creates reviewable clips only. For an already edited clip, use `upload`
+With automatic mode disabled, `process` creates reviewable clips only. For an already edited clip, use `upload`
 with its manifest (`metadata.title`, `description`, `hashtags`, optional
 `clip_sha256`). Every upload is private and has no scheduled public release.
-The API channel ID, privacy, and processing result are checked before a completion
-receipt is written to `data/desktop/receipts/`.
+The channel and privacy are checked before an accepted receipt is written to
+`data/desktop/receipts/`. Processing is verified separately when read access exists.
 
 When `data/desktop/config.json` exists, the standard `python -m clipper` CLI also
 uses desktop settings, including `process`, `queue`, `review` and `daemon`. The
-desktop `upload` command remains the explicit immediate private-upload entrypoint.
+desktop `upload` command remains the immediate private-upload entrypoint;
+the autopilot backend's daemon consumes submitted candidate tickets.
 The former Windows VPS worker launchers refuse to start while desktop mode is active.
 
 The local SQLite queue deduplicates by account and SHA-256, including files copied
